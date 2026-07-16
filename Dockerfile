@@ -3,7 +3,7 @@ FROM node:20-slim AS frontend
 WORKDIR /fe
 COPY frontend/ ./frontend/
 # vite build outputs to ../app/static (see frontend/vite.config.ts) => /fe/app/static
-RUN cd frontend && npm ci --no-audit --no-fund && npm run build
+RUN cd frontend && npm install --no-audit --no-fund && npm run build
 
 # ---- Stage 2: Python API that serves the built SPA ----
 FROM python:3.10-slim
