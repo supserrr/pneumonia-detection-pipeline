@@ -23,3 +23,9 @@ kaggle.json
 
 # Locust scratch output
 locust/*.csv
+
+# Frontend build tooling (node_modules is huge; app/static build IS committed
+# so the app runs after clone without Node — rebuild with: cd frontend && npm run build)
+frontend/node_modules/
+frontend/dist/
+frontend/*.log

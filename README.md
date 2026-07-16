@@ -157,6 +157,19 @@ Open http://localhost:8000 for the dashboard, or http://localhost:8000/docs for 
 
 The trained model ships with the repo, so it predicts right away with no training needed.
 
+The dashboard is a React + shadcn (neobrutalism) single-page app. Its **built output is committed**
+under `app/static/`, so `uvicorn` serves it immediately with no Node required. To change the UI, edit
+the source in `frontend/` and rebuild:
+
+```bash
+cd frontend
+npm install
+npm run build     # writes the built SPA into ../app/static
+```
+
+The Docker image rebuilds the frontend automatically (multi-stage build), so nothing extra is needed
+to deploy.
+
 > Note: `tensorflow==2.15` has wheels for Python 3.9 to 3.11. On Python 3.12 or 3.13 the install
 > will fail, so use a 3.10 or 3.11 interpreter for the venv.
 
@@ -321,10 +334,12 @@ All three came from distrusting a convenient number. Each is written up in the n
 
 ## Tech stack
 
-TensorFlow/Keras · FastAPI · Uvicorn · scikit-learn · SciPy · Pillow · NumPy · Locust ·
-Docker · nginx · Render. The dashboard is vanilla JS with hand-rolled, animated SVG charts (no chart
-library), Geist type (with a system-font fallback), a cursor-tracked spotlight, film-grain texture,
-and a validated colorblind-safe palette — theme-aware across light and dark.
+Backend and ML: TensorFlow/Keras · FastAPI · Uvicorn · scikit-learn · SciPy · Pillow · NumPy ·
+Locust · Docker · nginx · Render.
+
+Frontend: React · TypeScript · Vite · Tailwind v4 · shadcn/ui (neobrutalism theme) · Recharts.
+FastAPI serves the built single-page app and the Python API is unchanged. The UI is theme-aware
+across light and dark and uses a validated colorblind-safe blue/orange data palette.
 
 ## Data attribution
 

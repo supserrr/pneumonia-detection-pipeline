@@ -22,7 +22,8 @@ import time
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
@@ -47,12 +48,8 @@ def _warm_up() -> None:
         print(f"WARNING: model not loaded at startup: {exc}")
 
 
-# --------------------------------------------------------------------------- #
-# UI
-# --------------------------------------------------------------------------- #
-@app.get("/", response_class=HTMLResponse)
-def ui() -> str:
-    return (Path(__file__).parent / "static" / "index.html").read_text()
+# The web UI (built React/shadcn SPA) is served by a StaticFiles mount at the
+# bottom of this file, after all API routes so it doesn't shadow them.
 
 
 # --------------------------------------------------------------------------- #
@@ -173,3 +170,11 @@ def _run_retraining(epochs: int) -> None:
 @app.get("/retrain/status")
 def retrain_status() -> JSONResponse:
     return JSONResponse(_retrain_state)
+
+
+# --------------------------------------------------------------------------- #
+# Static SPA (built React/shadcn frontend) — mounted LAST so API routes win.
+# --------------------------------------------------------------------------- #
+_STATIC_DIR = Path(__file__).parent / "static"
+if _STATIC_DIR.exists():
+    app.mount("/", StaticFiles(directory=str(_STATIC_DIR), html=True), name="spa")
