@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pneumonia Chest X-ray Classifier — ML Pipeline Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root { --bg:#0f172a; --card:#1e293b; --accent:#38bdf8; --ok:#4ade80; --warn:#f87171; --text:#e2e8f0; --muted:#94a3b8; }
+  * { box-sizing:border-box; margin:0; padding:0; font-family:'Segoe UI',system-ui,sans-serif; }
+  body { background:var(--bg); color:var(--text); padding:24px; max-width:1100px; margin:0 auto; }
+  h1 { font-size:1.6rem; margin-bottom:4px; } h2 { font-size:1.1rem; margin-bottom:12px; color:var(--accent); }
+  .sub { color:var(--muted); margin-bottom:24px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; }
+  .card { background:var(--card); border-radius:12px; padding:20px; margin-bottom:16px; }
+  .stat { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #334155; font-size:.95rem; gap:12px; }
+  .stat span:last-child { color:var(--accent); font-weight:600; text-align:right; }
+  .badge { display:inline-block; padding:2px 10px; border-radius:999px; background:var(--ok); color:#052e16; font-weight:700; font-size:.8rem; }
+  .badge.down { background:var(--warn); color:#450a0a; }
+  button { background:var(--accent); border:none; color:#082f49; font-weight:700; padding:10px 18px; border-radius:8px; cursor:pointer; margin-top:10px; }
+  button:hover { filter:brightness(1.1); } button:disabled { opacity:.5; cursor:wait; }
+  input[type=file], select { margin-top:8px; color:var(--text); background:#0f172a; border:1px solid #334155; border-radius:8px; padding:8px; width:100%; }
+  .result { margin-top:12px; padding:12px; border-radius:8px; background:#0f172a; font-size:.95rem; white-space:pre-wrap; }
+  .interp { font-size:.88rem; color:var(--muted); margin-top:10px; line-height:1.5; }
+  canvas.mean { image-rendering:pixelated; width:120px; height:120px; border-radius:8px; border:1px solid #334155; }
+  .meanrow { display:flex; gap:24px; margin-top:8px; } .meanrow div { text-align:center; font-size:.85rem; color:var(--muted); }
+  .pneumonia { color:var(--warn); font-weight:700; } .normal { color:var(--ok); font-weight:700; }
+</style>
+</head>
+<body>
+  <h1>🫁 Pneumonia Chest X-ray Classifier</h1>
+  <p class="sub">End-to-end ML pipeline — prediction, monitoring, data visualizations and one-click retraining</p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Model Up-time &amp; Health</h2>
+      <div class="stat"><span>Status</span><span id="st-status" class="badge">…</span></div>
+      <div class="stat"><span>Up-time</span><span id="st-uptime">…</span></div>
+      <div class="stat"><span>Model last saved</span><span id="st-saved">…</span></div>
+      <div class="stat"><span>Model version</span><span id="st-note">…</span></div>
+      <div class="stat"><span>Test accuracy</span><span id="st-acc">…</span></div>
+      <div class="stat"><span>Test F1</span><span id="st-f1">…</span></div>
+      <div class="stat"><span>Retraining state</span><span id="st-retrain">…</span></div>
+    </div>
+
+    <div class="card">
+      <h2>Predict — single X-ray image</h2>
+      <input type="file" id="predict-file" accept="image/*">
+      <button onclick="doPredict()" id="predict-btn">Predict</button>
+      <div class="result" id="predict-result">Upload a chest X-ray (PNG/JPEG) and press Predict.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Dataset Visualizations &amp; Interpretations</h2>
+    <div class="grid">
+      <div>
+        <canvas id="chart-classes" height="220"></canvas>
+        <p class="interp"><b>Feature 1 — Class balance:</b> <span id="interp-classes"></span></p>
+      </div>
+      <div>
+        <canvas id="chart-brightness" height="220"></canvas>
+        <p class="interp"><b>Feature 2 — Brightness distribution:</b> <span id="interp-brightness"></span></p>
+      </div>
+      <div>
+        <canvas id="chart-contrast" height="220"></canvas>
+        <p class="interp"><b>Feature 3 — Contrast by class:</b> <span id="interp-contrast"></span></p>
+      </div>
+      <div>
+        <h2 style="font-size:.95rem">Mean image per class</h2>
+        <div class="meanrow">
+          <div><canvas class="mean" id="mean-NORMAL" width="64" height="64"></canvas><br>NORMAL</div>
+          <div><canvas class="mean" id="mean-PNEUMONIA" width="64" height="64"></canvas><br>PNEUMONIA</div>
+        </div>
+        <p class="interp"><b>Feature 4 — Average lung appearance:</b> <span id="interp-mean"></span></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Upload bulk data for retraining</h2>
+      <select id="upload-label">
+        <option value="NORMAL">NORMAL</option>
+        <option value="PNEUMONIA">PNEUMONIA</option>
+      </select>
+      <input type="file" id="upload-files" accept="image/*" multiple>
+      <button onclick="doUpload()" id="upload-btn">Upload images</button>
+      <div class="result" id="upload-result">Select multiple labelled X-ray images to add to the retraining pool.</div>
+    </div>
+
+    <div class="card">
+      <h2>Trigger retraining</h2>
+      <p class="interp">Fine-tunes the saved model (used as a pre-trained base) on the original training set plus every uploaded image, then hot-swaps the new model into the running API.</p>
+      <button onclick="doRetrain()" id="retrain-btn">🔁 Retrain model</button>
+      <div class="result" id="retrain-result">Idle.</div>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+async function refreshStatus() {
+  try {
+    const s = await (await fetch('/status')).json();
+    $('st-status').textContent = s.status.toUpperCase();
+    $('st-status').className = 'badge';
+    $('st-uptime').textContent = s.uptime_human;
+    $('st-saved').textContent = s.model_saved_at || 'n/a';
+    $('st-note').textContent = s.model_note || 'n/a';
+    const m = s.model_metrics || {};
+    $('st-acc').textContent = m.accuracy ? (m.accuracy*100).toFixed(2)+'%' : 'n/a';
+    $('st-f1').textContent = m.f1_score ? m.f1_score.toFixed(4) : 'n/a';
+    $('st-retrain').textContent = s.retraining;
+  } catch {
+    $('st-status').textContent = 'DOWN';
+    $('st-status').className = 'badge down';
+  }
+}
+refreshStatus(); setInterval(refreshStatus, 5000);
+
+async function doPredict() {
+  const f = $('predict-file').files[0];
+  if (!f) return alert('Choose an image first.');
+  $('predict-btn').disabled = true;
+  const fd = new FormData(); fd.append('file', f);
+  try {
+    const r = await (await fetch('/predict', {method:'POST', body:fd})).json();
+    const cls = r.prediction === 'PNEUMONIA' ? 'pneumonia' : 'normal';
+    $('predict-result').innerHTML =
+      `Prediction: <span class="${cls}">${r.prediction}</span>\n` +
+      `Pneumonia probability: ${(r.pneumonia_probability*100).toFixed(1)}%\n` +
+      `Confidence: ${(r.confidence*100).toFixed(1)}%`;
+  } catch(e) { $('predict-result').textContent = 'Error: ' + e; }
+  $('predict-btn').disabled = false;
+}
+
+async function doUpload() {
+  const files = $('upload-files').files;
+  if (!files.length) return alert('Choose one or more images.');
+  $('upload-btn').disabled = true;
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+  fd.append('label', $('upload-label').value);
+  try {
+    const r = await (await fetch('/upload', {method:'POST', body:fd})).json();
+    $('upload-result').textContent =
+      `Saved ${r.saved} image(s) as ${r.label}. Pending retraining pool: ${r.total_pending_upload_images} image(s).`;
+  } catch(e) { $('upload-result').textContent = 'Error: ' + e; }
+  $('upload-btn').disabled = false;
+}
+
+async function doRetrain() {
+  $('retrain-btn').disabled = true;
+  try {
+    const r = await fetch('/retrain', {method:'POST'});
+    $('retrain-result').textContent = (await r.json()).message || 'started';
+    pollRetrain();
+  } catch(e) { $('retrain-result').textContent = 'Error: ' + e; $('retrain-btn').disabled = false; }
+}
+async function pollRetrain() {
+  const s = await (await fetch('/retrain/status')).json();
+  if (s.status === 'running') {
+    $('retrain-result').textContent = `Retraining… (started ${s.started_at})`;
+    setTimeout(pollRetrain, 3000);
+  } else {
+    $('retrain-result').textContent = `Status: ${s.status}\n` + JSON.stringify(s.detail, null, 1);
+    $('retrain-btn').disabled = false;
+    refreshStatus();
+  }
+}
+
+const chartOpts = { plugins:{legend:{labels:{color:'#e2e8f0'}}},
+  scales:{ x:{ticks:{color:'#94a3b8'},grid:{color:'#334155'}}, y:{ticks:{color:'#94a3b8'},grid:{color:'#334155'}} } };
+
+async function loadViz() {
+  const v = await (await fetch('/visualizations')).json();
+  const c = v.classes; if (!c) return;
+  const names = ['NORMAL','PNEUMONIA'].filter(n => c[n]);
+  const counts = names.map(n => c[n].count);
+
+  new Chart($('chart-classes'), { type:'bar',
+    data:{ labels:names, datasets:[{label:'Training images', data:counts, backgroundColor:['#4ade80','#f87171']}]},
+    options:chartOpts });
+  const total = counts.reduce((a,b)=>a+b,0);
+  const pct = (100*counts[1]/total).toFixed(1);
+  $('interp-classes').textContent =
+    `The training set holds ${total} images: ${counts[0]} NORMAL vs ${counts[1]} PNEUMONIA — a real ${pct}% / ${(100-pct).toFixed(1)}% imbalance, not a balanced set. This matters twice over. First, a lazy model that always guessed "PNEUMONIA" would score 62.5% on the test set, so that — not 50% — is the bar any accuracy claim must clear. Second, unchecked imbalance biases the model toward the majority class, so training applies class weights (NORMAL ×1.94, PNEUMONIA ×0.67) to penalise mistakes on the rarer NORMAL class proportionally harder.`;
+
+  new Chart($('chart-brightness'), { type:'line',
+    data:{ labels:[...Array(20).keys()].map(i=>Math.round(i*12.75)),
+      datasets: names.map((n,i)=>({label:n, data:c[n].brightness_hist, borderColor:i? '#f87171':'#4ade80', fill:false, tension:.3}))},
+    options:chartOpts });
+  $('interp-brightness').textContent =
+    `A negative result, and the most instructive chart here. Textbook intuition says pneumonia should look brighter — infection fills air sacs with fluid that absorbs X-rays and shows as white opacity. It does not hold: NORMAL ${c.NORMAL.mean_brightness.toFixed(1)} vs PNEUMONIA ${c.PNEUMONIA.mean_brightness.toFixed(1)} on a 0–255 scale (Cohen's d = 0.04, p = 0.09 — statistically indistinguishable), and the two curves sit almost on top of each other. Pneumonia is a *localised* opacity; averaging every pixel dilutes it into the ribs, heart and background until the signal vanishes. Whole-image brightness is a dud feature, and that is exactly why the CNN — which reads local spatial pattern rather than a global average — is the right tool.`;
+
+  new Chart($('chart-contrast'), { type:'bar',
+    data:{ labels:names, datasets:[{label:'Mean within-image contrast (std of pixels)',
+      data:names.map(n=>c[n].mean_contrast), backgroundColor:['#4ade80','#f87171']}]},
+    options:chartOpts });
+  $('interp-contrast').textContent =
+    `Where brightness failed, contrast delivers. Healthy lungs are air-filled and near-black against bright ribs and heart, giving HIGH contrast (NORMAL: ${c.NORMAL.mean_contrast.toFixed(1)}). Pneumonic consolidation floods those dark air spaces with white opacity, pulling the image toward mid-grey and LOWERING contrast (PNEUMONIA: ${c.PNEUMONIA.mean_contrast.toFixed(1)}). Cohen's d = −0.62 (p ≈ 10⁻¹³²) — a genuine medium effect. The disease's signature survives averaging here because replacing air with fluid compresses the *spread* of pixel values even when it leaves the mean untouched.`;
+
+  for (const n of names) {
+    const ctx = $('mean-'+n).getContext('2d');
+    const im = ctx.createImageData(64,64);
+    c[n].mean_image.forEach((row,y)=>row.forEach((p,x)=>{
+      const i=(y*64+x)*4; im.data[i]=im.data[i+1]=im.data[i+2]=p; im.data[i+3]=255; }));
+    ctx.putImageData(im,0,0);
+  }
+  $('interp-mean').textContent =
+    'Averaging every training image per class cancels individual anatomy and leaves the population fingerprint: the NORMAL mean keeps darker, more sharply outlined lung fields, while the PNEUMONIA mean is hazier and softer through the lung zones. The story the features tell together: pneumonia is not globally brighter, it is locally hazier and lower-contrast in the lung fields specifically. A single number per image cannot capture "where" — which is the whole argument for a convolutional model over hand-crafted statistics.';
+}
+loadViz();
+</script>
+</body>
+</html>
