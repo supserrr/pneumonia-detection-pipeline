@@ -14,10 +14,12 @@ You can also retrain it from the browser by uploading new images and clicking a 
 | | |
 |---|---|
 | Video demo (YouTube) | `<ADD YOUR YOUTUBE LINK HERE>` |
-| Live URL | `<ADD YOUR DEPLOYED RENDER URL HERE>` |
-| GitHub repo | `<ADD YOUR REPO URL HERE>` |
+| Live URL | https://pneumonia-xray-classifier-tqu5.onrender.com |
+| GitHub repo | https://github.com/supserrr/pneumonia-detection-pipeline |
 
-> Fill in the three links above before submitting.
+> Add your YouTube demo link above before submitting; the live URL and repo are set.
+> The live URL runs on Render's free tier and sleeps after inactivity, so the first
+> request can take 30 to 60 seconds to wake the instance.
 
 ---
 
