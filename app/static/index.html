@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pneumonia Detection · ML Pipeline Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 /* ============================================================================
    Design tokens — validated data-viz palette (blue = NORMAL, orange = PNEUMONIA,
@@ -17,32 +20,34 @@
   --normal:#2a78d6; --pneu:#eb6834;
   --good:#0ca30c; --critical:#d03b3b;
   --seq-1:#cde2fb; --seq-2:#86b6ef; --seq-3:#3987e5; --seq-4:#1c5cab;
-  --shadow: 0 1px 2px rgba(16,16,20,.04), 0 8px 24px -12px rgba(16,16,20,.12);
-  --shadow-lg: 0 2px 4px rgba(16,16,20,.05), 0 24px 48px -20px rgba(16,16,20,.22);
-  --radius:16px; --radius-sm:10px;
+  --hairline: rgba(255,255,255,.65);            /* inner top highlight (machined edge) */
+  --shadow: 0 1px 2px rgba(30,41,59,.05), 0 10px 30px -14px rgba(30,41,59,.16);
+  --shadow-lg: 0 2px 6px rgba(30,41,59,.06), 0 30px 60px -22px rgba(30,41,59,.26);
+  --radius:18px; --radius-sm:12px;
   --ease-out: cubic-bezier(.23,1,.32,1);
   --ease-in-out: cubic-bezier(.77,0,.175,1);
-  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ease-spring: cubic-bezier(.32,.72,0,1);
+  --mono: "Geist Mono", ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --sans: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, sans-serif;
 }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --bg:#121211; --surface:#1a1a19; --surface-2:#232320; --border:#302f2b;
+  --bg:#0b0b0a; --surface:#1a1a19; --surface-2:#232320; --border:#302f2b; --hairline:rgba(255,255,255,.07);
   --text:#ffffff; --text-2:#c3c2b7; --muted:#8f8d82;
   --accent:#3987e5; --accent-ink:#ffffff;
   --normal:#3987e5; --pneu:#d95926;
   --good:#0ca30c; --critical:#e05a5a;
   --seq-1:#12305a; --seq-2:#184f95; --seq-3:#2a78d6; --seq-4:#6da7ec;
-  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px -14px rgba(0,0,0,.6);
-  --shadow-lg: 0 2px 4px rgba(0,0,0,.4), 0 28px 56px -22px rgba(0,0,0,.7);
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 44px -20px rgba(0,0,0,.72);
+  --shadow-lg: 0 2px 6px rgba(0,0,0,.5), 0 40px 80px -26px rgba(0,0,0,.82);
 }}
 :root[data-theme="dark"]{
-  --bg:#121211; --surface:#1a1a19; --surface-2:#232320; --border:#302f2b;
+  --bg:#0b0b0a; --surface:#1a1a19; --surface-2:#232320; --border:#302f2b; --hairline:rgba(255,255,255,.07);
   --text:#ffffff; --text-2:#c3c2b7; --muted:#8f8d82;
   --accent:#3987e5; --accent-ink:#ffffff;
   --normal:#3987e5; --pneu:#d95926; --good:#0ca30c; --critical:#e05a5a;
   --seq-1:#12305a; --seq-2:#184f95; --seq-3:#2a78d6; --seq-4:#6da7ec;
-  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px -14px rgba(0,0,0,.6);
-  --shadow-lg: 0 2px 4px rgba(0,0,0,.4), 0 28px 56px -22px rgba(0,0,0,.7);
+  --shadow: 0 1px 2px rgba(0,0,0,.4), 0 18px 44px -20px rgba(0,0,0,.72);
+  --shadow-lg: 0 2px 6px rgba(0,0,0,.5), 0 40px 80px -26px rgba(0,0,0,.82);
 }
 
 *{ box-sizing:border-box; margin:0; padding:0; }
@@ -61,32 +66,39 @@ body::before{
     radial-gradient(50% 100% at 90% 0%, color-mix(in oklab, var(--pneu) 12%, transparent), transparent 70%);
   opacity:.7;
 }
-.wrap{ max-width:1180px; margin:0 auto; padding:28px 22px 64px; }
+/* fixed film-grain overlay to break digital flatness (pointer-events off, GPU-cheap) */
+body::after{
+  content:""; position:fixed; inset:0; z-index:90; pointer-events:none; opacity:.04; mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.wrap{ max-width:1180px; margin:0 auto; padding:34px 24px 88px; }
 
 /* ---- typography ---- */
-h1{ font-size:clamp(1.7rem,1.3rem+1.4vw,2.15rem); line-height:1.1; letter-spacing:-.02em; font-weight:700; }
-h2{ font-size:1.15rem; line-height:1.25; letter-spacing:-.01em; font-weight:650; }
-.eyebrow{ font-size:.7rem; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); font-weight:650; }
+h1{ font-size:clamp(1.85rem,1.3rem+1.8vw,2.45rem); line-height:1.03; letter-spacing:-.035em; font-weight:700; text-wrap:balance; }
+h2{ font-size:1.18rem; line-height:1.22; letter-spacing:-.018em; font-weight:600; text-wrap:balance; }
+.eyebrow{ font-size:.68rem; letter-spacing:.11em; text-transform:uppercase; color:var(--muted); font-weight:600; }
 .prose{ font-size:.9rem; color:var(--text-2); line-height:1.6; max-width:66ch; }
 .mono{ font-family:var(--mono); }
 
 /* ---- layout ---- */
 .hero{ display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; margin-bottom:26px; }
 .hero .lead{ display:flex; gap:14px; align-items:center; }
-.logo{ width:52px; height:52px; border-radius:14px; display:grid; place-items:center; font-size:26px;
-  background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow); flex:0 0 auto; }
-.hero .sub{ color:var(--text-2); font-size:.92rem; margin-top:2px; }
+.logo{ width:54px; height:54px; border-radius:16px; display:grid; place-items:center; font-size:27px;
+  background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow), inset 0 1px 0 var(--hairline); flex:0 0 auto; }
+.hero .sub{ color:var(--text-2); font-size:.92rem; margin-top:3px; letter-spacing:-.005em; }
 .hero .side{ display:flex; align-items:center; gap:10px; }
 
-.pill{ display:inline-flex; align-items:center; gap:8px; padding:7px 13px; border-radius:999px;
-  background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow); font-size:.82rem; font-weight:600; }
+.pill{ display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:999px;
+  background:color-mix(in oklab, var(--surface) 72%, transparent); backdrop-filter:blur(12px) saturate(1.3); -webkit-backdrop-filter:blur(12px) saturate(1.3);
+  border:1px solid var(--border); box-shadow:var(--shadow), inset 0 1px 0 var(--hairline); font-size:.82rem; font-weight:500; }
 .dot{ width:8px; height:8px; border-radius:50%; background:var(--good); position:relative; }
 .dot::after{ content:""; position:absolute; inset:-4px; border-radius:50%; background:var(--good); opacity:.35; animation:ping 1.9s var(--ease-out) infinite; }
 .pill.down .dot, .pill.down .dot::after{ background:var(--critical); }
 @keyframes ping{ 0%{ transform:scale(1); opacity:.35 } 70%,100%{ transform:scale(2.4); opacity:0 } }
 
-.icon-btn{ width:40px; height:40px; border-radius:12px; display:grid; place-items:center; cursor:pointer;
-  background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow); color:var(--text);
+.icon-btn{ width:42px; height:42px; border-radius:13px; display:grid; place-items:center; cursor:pointer;
+  background:color-mix(in oklab, var(--surface) 72%, transparent); backdrop-filter:blur(12px) saturate(1.3); -webkit-backdrop-filter:blur(12px) saturate(1.3);
+  border:1px solid var(--border); box-shadow:var(--shadow), inset 0 1px 0 var(--hairline); color:var(--text);
   transition:transform 160ms var(--ease-out), background 200ms ease; }
 .icon-btn:hover{ background:var(--surface-2); }
 .icon-btn:active{ transform:scale(.92); }
@@ -100,7 +112,12 @@ h2{ font-size:1.15rem; line-height:1.25; letter-spacing:-.01em; font-weight:650;
 section{ margin-bottom:16px; }
 
 .card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  padding:20px; box-shadow:var(--shadow); position:relative; }
+  padding:22px; box-shadow:var(--shadow), inset 0 1px 0 var(--hairline); position:relative; isolation:isolate; }
+/* cursor-tracked spotlight: sits above the surface, below the content (z-index -1 within the card's own stacking context) */
+.card::before{ content:""; position:absolute; inset:0; border-radius:inherit; z-index:-1; opacity:0; pointer-events:none;
+  transition:opacity .45s var(--ease-out);
+  background:radial-gradient(240px circle at var(--mx,50%) var(--my,50%), color-mix(in oklab,var(--accent) 12%, transparent), transparent 62%); }
+@media (hover:hover) and (pointer:fine){ .card:hover::before{ opacity:1; } }
 .card .head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
 
 /* ---- KPI tiles ---- */
@@ -108,8 +125,8 @@ section{ margin-bottom:16px; }
 .kpi .label{ font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:650; }
 .kpi .val{ font-size:1.75rem; font-weight:700; letter-spacing:-.02em; margin:6px 0 10px; font-variant-numeric:tabular-nums; }
 .meter{ height:6px; border-radius:99px; background:var(--surface-2); overflow:hidden; }
-.meter > i{ display:block; height:100%; width:0; border-radius:99px; background:linear-gradient(90deg,var(--accent),color-mix(in oklab,var(--accent) 60%, var(--pneu)));
-  transition:width 1100ms var(--ease-out); }
+.meter > i{ display:block; height:100%; width:0; border-radius:99px; background:var(--accent);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.28); transition:width 1100ms var(--ease-out); }
 @media (hover:hover) and (pointer:fine){
   .card.lift{ transition:transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out); }
   .card.lift:hover{ transform:translateY(-2px); box-shadow:var(--shadow-lg); }
@@ -125,15 +142,19 @@ img,svg,canvas,select{ max-width:100%; }
 .stat .k{ color:var(--text-2); }
 
 /* ---- buttons ---- */
-.btn{ appearance:none; border:0; cursor:pointer; font-family:inherit; font-weight:650; font-size:.9rem;
-  padding:11px 18px; border-radius:12px; background:var(--accent); color:var(--accent-ink);
+.btn{ appearance:none; border:0; cursor:pointer; font-family:inherit; font-weight:600; font-size:.9rem;
+  padding:11px 18px; border-radius:13px; background:var(--accent); color:var(--accent-ink);
   display:inline-flex; align-items:center; gap:8px; transition:transform 150ms var(--ease-out), filter 200ms ease, box-shadow 200ms ease;
-  box-shadow:0 1px 2px rgba(0,0,0,.12); }
-.btn:hover{ filter:brightness(1.06); }
+  box-shadow:0 1px 2px rgba(0,0,0,.14), 0 10px 24px -12px color-mix(in oklab,var(--accent) 65%, transparent), inset 0 1px 0 rgba(255,255,255,.22); }
+.btn:hover{ filter:brightness(1.05); }
 .btn:active{ transform:scale(.97); }
-.btn:disabled{ opacity:.55; cursor:not-allowed; }
-.btn.ghost{ background:var(--surface-2); color:var(--text); box-shadow:none; }
-.btn.big{ display:flex; width:100%; justify-content:center; padding:13px; font-size:.95rem; }
+.btn:disabled{ opacity:.5; cursor:not-allowed; box-shadow:none; }
+.btn.ghost{ background:var(--surface-2); color:var(--text); box-shadow:var(--shadow), inset 0 1px 0 var(--hairline); }
+.btn.big{ display:flex; width:100%; justify-content:center; padding:14px; font-size:.95rem; border-radius:14px; position:relative; }
+.btn .ic{ width:26px; height:26px; border-radius:50%; background:rgba(255,255,255,.2); display:grid; place-items:center; transition:transform .35s var(--ease-out); flex:0 0 auto; }
+.btn .ic svg{ width:14px; height:14px; }
+.btn.big .ic{ position:absolute; right:9px; top:50%; transform:translateY(-50%); }
+.btn.big:hover .ic{ transform:translateY(-50%) translateX(3px); }
 
 /* ---- dropzone ---- */
 .drop{ display:block; border:1.5px dashed var(--border); border-radius:var(--radius-sm); padding:22px 16px; text-align:center;
@@ -249,7 +270,7 @@ canvas.mean{ width:132px; height:132px; border-radius:12px; border:1px solid var
         <div id="pdrop-text">Drop an X-ray here, or click to browse<br><span style="font-size:.78rem">PNG / JPEG · try any file from <span class="mono">data/test/</span></span></div>
         <input type="file" id="pfile" accept="image/*">
       </label>
-      <button class="btn big" id="pbtn" style="margin-top:12px" disabled>Predict</button>
+      <button class="btn big" id="pbtn" style="margin-top:12px" disabled><span id="pbtn-label">Predict</span><span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>
       <div class="verdict" id="verdict"></div>
     </div>
 
@@ -429,7 +450,7 @@ wireDrop(pdrop, pfile, files=>{
 });
 pbtn.onclick = async () => {
   const f=pfile.files[0]; if(!f) return;
-  pbtn.disabled=true; pbtn.textContent="Analyzing…";
+  pbtn.disabled=true; $("#pbtn-label").textContent="Analyzing…";
   const fd=new FormData(); fd.append("file",f);
   try{
     const r = await jfetch("/predict",{method:"POST",body:fd});
@@ -442,7 +463,7 @@ pbtn.onclick = async () => {
     v.classList.add("show");
     requestAnimationFrame(()=> $("#gfill").style.width = prob+"%");
   }catch(e){ $("#verdict").innerHTML=`<div class="note" style="color:var(--critical)">Prediction failed: ${e.message}</div>`; $("#verdict").classList.add("show"); }
-  pbtn.disabled=false; pbtn.textContent="Predict";
+  pbtn.disabled=false; $("#pbtn-label").textContent="Predict";
 };
 
 /* ---------- upload ---------- */
@@ -588,6 +609,11 @@ function writeInterps(c){
   $("#i-bright").textContent = `A negative result, and the most instructive chart here. Textbook intuition says pneumonia should look brighter, since infection fills the air sacs with fluid that absorbs X-rays and shows as white opacity. It does not hold: NORMAL ${c.NORMAL.mean_brightness.toFixed(1)} against PNEUMONIA ${c.PNEUMONIA.mean_brightness.toFixed(1)} on a 0 to 255 scale (Cohen's d = 0.04, p = 0.09, statistically indistinguishable), and the two curves sit almost on top of each other. Pneumonia is a localised opacity, so averaging every pixel dilutes it into the ribs, heart and background until the signal vanishes. Whole-image brightness is a dud feature, which is exactly why a CNN that reads local spatial pattern is the right tool.`;
   $("#i-contrast").textContent = `Where brightness failed, contrast delivers. Healthy lungs are air-filled and near-black against bright ribs and heart, giving a high spread of pixel values (NORMAL: ${c.NORMAL.mean_contrast.toFixed(1)}). Pneumonic consolidation floods those dark spaces with white opacity, pulling the image toward mid-grey and compressing the spread (PNEUMONIA: ${c.PNEUMONIA.mean_contrast.toFixed(1)}). Cohen's d = -0.62 (p ≈ 10⁻¹³²), a genuine medium effect. The signature survives averaging because replacing air with fluid compresses the spread of pixel values even when it leaves the mean untouched.`;
   $("#i-mean").textContent = `Averaging every training image per class cancels individual anatomy and leaves the population fingerprint. The NORMAL mean keeps darker, more sharply outlined lung fields, while the PNEUMONIA mean is hazier and softer through the lung zones. Together the features tell one story: pneumonia is not globally brighter, it is locally hazier and lower in contrast, in the lung fields specifically. A single number per image cannot capture where, and that is the whole argument for a convolutional model over hand-crafted statistics.`;
+}
+
+/* ---------- cursor-tracked card spotlight (hover-capable devices only) ---------- */
+if(matchMedia("(hover:hover) and (pointer:fine)").matches){
+  addEventListener("pointermove", e=>{ const c=e.target.closest(".card"); if(!c) return; const r=c.getBoundingClientRect(); c.style.setProperty("--mx",(e.clientX-r.left)+"px"); c.style.setProperty("--my",(e.clientY-r.top)+"px"); }, {passive:true});
 }
 
 /* ---------- boot ---------- */

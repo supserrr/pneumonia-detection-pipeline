@@ -322,9 +322,9 @@ All three came from distrusting a convenient number. Each is written up in the n
 ## Tech stack
 
 TensorFlow/Keras · FastAPI · Uvicorn · scikit-learn · SciPy · Pillow · NumPy · Locust ·
-Docker · nginx · Render. The dashboard is dependency-free vanilla JS with hand-rolled, animated SVG
-charts (no chart library, no external fonts or CDNs), so it loads instantly and is theme-aware
-(light/dark).
+Docker · nginx · Render. The dashboard is vanilla JS with hand-rolled, animated SVG charts (no chart
+library), Geist type (with a system-font fallback), a cursor-tracked spotlight, film-grain texture,
+and a validated colorblind-safe palette — theme-aware across light and dark.
 
 ## Data attribution
 
