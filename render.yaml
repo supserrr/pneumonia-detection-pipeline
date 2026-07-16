@@ -4,7 +4,9 @@ services:
   - type: web
     name: pneumonia-xray-classifier
     runtime: docker
-    plan: starter          # 'free' also works; starter has more RAM for TensorFlow
+    plan: free             # 512 MB RAM. Enough to serve predictions on tensorflow-cpu;
+                           # retraining (loads the full training set) may exceed 512 MB.
+                           # Bump to 'starter'/'standard' if you need retrain in the cloud.
     dockerfilePath: ./Dockerfile
     healthCheckPath: /status
     autoDeploy: true

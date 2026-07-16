@@ -1,0 +1,13 @@
+# Runtime dependencies for the container image (Dockerfile installs THIS file).
+# Identical to requirements.txt except it uses tensorflow-cpu instead of the full
+# tensorflow package: a much smaller image and lower memory at boot, which matters
+# on small free-tier instances (e.g. Render free = 512 MB RAM). tensorflow-cpu is
+# the same TensorFlow without the GPU/CUDA libraries, and it loads the same .h5
+# model. requirements.txt keeps plain `tensorflow` so it still installs on macOS.
+tensorflow-cpu==2.15.0
+numpy<2
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+pillow>=10.0
+scikit-learn>=1.3
