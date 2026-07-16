@@ -1,216 +1,597 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pneumonia Chest X-ray Classifier — ML Pipeline Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<title>Pneumonia Detection · ML Pipeline Dashboard</title>
 <style>
-  :root { --bg:#0f172a; --card:#1e293b; --accent:#38bdf8; --ok:#4ade80; --warn:#f87171; --text:#e2e8f0; --muted:#94a3b8; }
-  * { box-sizing:border-box; margin:0; padding:0; font-family:'Segoe UI',system-ui,sans-serif; }
-  body { background:var(--bg); color:var(--text); padding:24px; max-width:1100px; margin:0 auto; }
-  h1 { font-size:1.6rem; margin-bottom:4px; } h2 { font-size:1.1rem; margin-bottom:12px; color:var(--accent); }
-  .sub { color:var(--muted); margin-bottom:24px; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; }
-  .card { background:var(--card); border-radius:12px; padding:20px; margin-bottom:16px; }
-  .stat { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #334155; font-size:.95rem; gap:12px; }
-  .stat span:last-child { color:var(--accent); font-weight:600; text-align:right; }
-  .badge { display:inline-block; padding:2px 10px; border-radius:999px; background:var(--ok); color:#052e16; font-weight:700; font-size:.8rem; }
-  .badge.down { background:var(--warn); color:#450a0a; }
-  button { background:var(--accent); border:none; color:#082f49; font-weight:700; padding:10px 18px; border-radius:8px; cursor:pointer; margin-top:10px; }
-  button:hover { filter:brightness(1.1); } button:disabled { opacity:.5; cursor:wait; }
-  input[type=file], select { margin-top:8px; color:var(--text); background:#0f172a; border:1px solid #334155; border-radius:8px; padding:8px; width:100%; }
-  .result { margin-top:12px; padding:12px; border-radius:8px; background:#0f172a; font-size:.95rem; white-space:pre-wrap; }
-  .interp { font-size:.88rem; color:var(--muted); margin-top:10px; line-height:1.5; }
-  canvas.mean { image-rendering:pixelated; width:120px; height:120px; border-radius:8px; border:1px solid #334155; }
-  .meanrow { display:flex; gap:24px; margin-top:8px; } .meanrow div { text-align:center; font-size:.85rem; color:var(--muted); }
-  .pneumonia { color:var(--warn); font-weight:700; } .normal { color:var(--ok); font-weight:700; }
+/* ============================================================================
+   Design tokens — validated data-viz palette (blue = NORMAL, orange = PNEUMONIA,
+   CVD ΔE ~97), dense-dashboard type scale, custom motion easings.
+   ========================================================================== */
+:root{
+  color-scheme: light dark;
+  --bg:#f6f6f4; --surface:#fcfcfb; --surface-2:#f0efec; --border:#e5e4df;
+  --text:#0b0b0b; --text-2:#52514e; --muted:#6a6960;   /* darkened for WCAG 4.5:1 on light surfaces */
+  --accent:#2a78d6; --accent-ink:#ffffff;
+  --normal:#2a78d6; --pneu:#eb6834;
+  --good:#0ca30c; --critical:#d03b3b;
+  --seq-1:#cde2fb; --seq-2:#86b6ef; --seq-3:#3987e5; --seq-4:#1c5cab;
+  --shadow: 0 1px 2px rgba(16,16,20,.04), 0 8px 24px -12px rgba(16,16,20,.12);
+  --shadow-lg: 0 2px 4px rgba(16,16,20,.05), 0 24px 48px -20px rgba(16,16,20,.22);
+  --radius:16px; --radius-sm:10px;
+  --ease-out: cubic-bezier(.23,1,.32,1);
+  --ease-in-out: cubic-bezier(.77,0,.175,1);
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#121211; --surface:#1a1a19; --surface-2:#232320; --border:#302f2b;
+  --text:#ffffff; --text-2:#c3c2b7; --muted:#8f8d82;
+  --accent:#3987e5; --accent-ink:#ffffff;
+  --normal:#3987e5; --pneu:#d95926;
+  --good:#0ca30c; --critical:#e05a5a;
+  --seq-1:#12305a; --seq-2:#184f95; --seq-3:#2a78d6; --seq-4:#6da7ec;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px -14px rgba(0,0,0,.6);
+  --shadow-lg: 0 2px 4px rgba(0,0,0,.4), 0 28px 56px -22px rgba(0,0,0,.7);
+}}
+:root[data-theme="dark"]{
+  --bg:#121211; --surface:#1a1a19; --surface-2:#232320; --border:#302f2b;
+  --text:#ffffff; --text-2:#c3c2b7; --muted:#8f8d82;
+  --accent:#3987e5; --accent-ink:#ffffff;
+  --normal:#3987e5; --pneu:#d95926; --good:#0ca30c; --critical:#e05a5a;
+  --seq-1:#12305a; --seq-2:#184f95; --seq-3:#2a78d6; --seq-4:#6da7ec;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 12px 32px -14px rgba(0,0,0,.6);
+  --shadow-lg: 0 2px 4px rgba(0,0,0,.4), 0 28px 56px -22px rgba(0,0,0,.7);
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+html{ -webkit-text-size-adjust:100%; }
+body{
+  font-family:var(--sans); background:var(--bg); color:var(--text);
+  line-height:1.6; font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  min-height:100vh; overflow-x:hidden;
+}
+/* subtle ambient glow behind the hero */
+body::before{
+  content:""; position:fixed; inset:0 0 auto 0; height:420px; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(60% 100% at 15% 0%, color-mix(in oklab, var(--normal) 16%, transparent), transparent 70%),
+    radial-gradient(50% 100% at 90% 0%, color-mix(in oklab, var(--pneu) 12%, transparent), transparent 70%);
+  opacity:.7;
+}
+.wrap{ max-width:1180px; margin:0 auto; padding:28px 22px 64px; }
+
+/* ---- typography ---- */
+h1{ font-size:clamp(1.7rem,1.3rem+1.4vw,2.15rem); line-height:1.1; letter-spacing:-.02em; font-weight:700; }
+h2{ font-size:1.15rem; line-height:1.25; letter-spacing:-.01em; font-weight:650; }
+.eyebrow{ font-size:.7rem; letter-spacing:.09em; text-transform:uppercase; color:var(--muted); font-weight:650; }
+.prose{ font-size:.9rem; color:var(--text-2); line-height:1.6; max-width:66ch; }
+.mono{ font-family:var(--mono); }
+
+/* ---- layout ---- */
+.hero{ display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap; margin-bottom:26px; }
+.hero .lead{ display:flex; gap:14px; align-items:center; }
+.logo{ width:52px; height:52px; border-radius:14px; display:grid; place-items:center; font-size:26px;
+  background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow); flex:0 0 auto; }
+.hero .sub{ color:var(--text-2); font-size:.92rem; margin-top:2px; }
+.hero .side{ display:flex; align-items:center; gap:10px; }
+
+.pill{ display:inline-flex; align-items:center; gap:8px; padding:7px 13px; border-radius:999px;
+  background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow); font-size:.82rem; font-weight:600; }
+.dot{ width:8px; height:8px; border-radius:50%; background:var(--good); position:relative; }
+.dot::after{ content:""; position:absolute; inset:-4px; border-radius:50%; background:var(--good); opacity:.35; animation:ping 1.9s var(--ease-out) infinite; }
+.pill.down .dot, .pill.down .dot::after{ background:var(--critical); }
+@keyframes ping{ 0%{ transform:scale(1); opacity:.35 } 70%,100%{ transform:scale(2.4); opacity:0 } }
+
+.icon-btn{ width:40px; height:40px; border-radius:12px; display:grid; place-items:center; cursor:pointer;
+  background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow); color:var(--text);
+  transition:transform 160ms var(--ease-out), background 200ms ease; }
+.icon-btn:hover{ background:var(--surface-2); }
+.icon-btn:active{ transform:scale(.92); }
+.icon-btn svg{ width:18px; height:18px; }
+
+.grid{ display:grid; gap:16px; }
+/* min(100%, N) so a track never exceeds a narrow container -> collapses to 1 column instead of overflowing */
+.cols-2{ grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr)); }
+.kpis{ grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr)); margin-bottom:16px; }
+.viz{ grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); }
+section{ margin-bottom:16px; }
+
+.card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+  padding:20px; box-shadow:var(--shadow); position:relative; }
+.card .head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
+
+/* ---- KPI tiles ---- */
+.kpi{ padding:16px 16px 14px; }
+.kpi .label{ font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:650; }
+.kpi .val{ font-size:1.75rem; font-weight:700; letter-spacing:-.02em; margin:6px 0 10px; font-variant-numeric:tabular-nums; }
+.meter{ height:6px; border-radius:99px; background:var(--surface-2); overflow:hidden; }
+.meter > i{ display:block; height:100%; width:0; border-radius:99px; background:linear-gradient(90deg,var(--accent),color-mix(in oklab,var(--accent) 60%, var(--pneu)));
+  transition:width 1100ms var(--ease-out); }
+@media (hover:hover) and (pointer:fine){
+  .card.lift{ transition:transform 220ms var(--ease-out), box-shadow 220ms var(--ease-out); }
+  .card.lift:hover{ transform:translateY(-2px); box-shadow:var(--shadow-lg); }
+}
+
+/* ---- stat rows ---- */
+.stat{ display:flex; justify-content:space-between; gap:12px; padding:9px 0; border-bottom:1px solid var(--border); font-size:.88rem; }
+.stat:last-child{ border-bottom:0; }
+.stat .k{ flex:0 0 auto; }
+.stat b{ font-weight:600; text-align:right; min-width:0; overflow-wrap:anywhere; }
+img,svg,canvas,select{ max-width:100%; }
+.lead{ min-width:0; } h1{ overflow-wrap:anywhere; }
+.stat .k{ color:var(--text-2); }
+
+/* ---- buttons ---- */
+.btn{ appearance:none; border:0; cursor:pointer; font-family:inherit; font-weight:650; font-size:.9rem;
+  padding:11px 18px; border-radius:12px; background:var(--accent); color:var(--accent-ink);
+  display:inline-flex; align-items:center; gap:8px; transition:transform 150ms var(--ease-out), filter 200ms ease, box-shadow 200ms ease;
+  box-shadow:0 1px 2px rgba(0,0,0,.12); }
+.btn:hover{ filter:brightness(1.06); }
+.btn:active{ transform:scale(.97); }
+.btn:disabled{ opacity:.55; cursor:not-allowed; }
+.btn.ghost{ background:var(--surface-2); color:var(--text); box-shadow:none; }
+.btn.big{ display:flex; width:100%; justify-content:center; padding:13px; font-size:.95rem; }
+
+/* ---- dropzone ---- */
+.drop{ display:block; border:1.5px dashed var(--border); border-radius:var(--radius-sm); padding:22px 16px; text-align:center;
+  cursor:pointer; color:var(--muted); font-size:.86rem; transition:border-color 200ms ease, background 200ms ease, transform 150ms var(--ease-out); background:var(--surface-2); }
+.drop:hover{ border-color:var(--accent); color:var(--text-2); }
+.drop.hot{ border-color:var(--accent); background:color-mix(in oklab, var(--accent) 8%, var(--surface-2)); transform:scale(1.01); }
+.drop svg{ width:26px; height:26px; display:block; margin:0 auto 6px; opacity:.7; }
+/* visually hidden but still keyboard-focusable (Tab + Enter opens the picker) */
+.drop input{ position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
+.drop:focus-within{ border-color:var(--accent); background:color-mix(in oklab, var(--accent) 8%, var(--surface-2)); }
+:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:8px; }
+.btn:focus-visible, .icon-btn:focus-visible{ outline-offset:3px; }
+.thumb{ width:72px; height:72px; border-radius:10px; object-fit:cover; border:1px solid var(--border); margin:0 auto 8px; display:block; }
+
+select{ font-family:inherit; font-size:.88rem; color:var(--text); background:var(--surface-2);
+  border:1px solid var(--border); border-radius:10px; padding:9px 11px; width:100%; margin-bottom:10px; }
+
+/* ---- predict result ---- */
+.verdict{ margin-top:14px; opacity:0; transform:translateY(8px); }
+.verdict.show{ animation:rise 480ms var(--ease-out) forwards; }
+@keyframes rise{ from{ opacity:0; transform:translateY(8px) scale(.98); filter:blur(4px) } to{ opacity:1; transform:none; filter:none } }
+.verdict .cls{ font-size:1.5rem; font-weight:750; letter-spacing:-.02em; display:flex; align-items:center; gap:10px; }
+.tag{ display:inline-flex; align-items:center; gap:7px; padding:4px 11px; border-radius:999px; font-size:.78rem; font-weight:650; }
+.tag.normal{ color:var(--normal); background:color-mix(in oklab,var(--normal) 14%, transparent); }
+.tag.pneu{ color:var(--pneu); background:color-mix(in oklab,var(--pneu) 16%, transparent); }
+.gauge{ margin-top:12px; }
+.gauge .track{ height:10px; border-radius:99px; background:var(--surface-2); overflow:hidden; position:relative; }
+.gauge .track > i{ display:block; height:100%; width:0; border-radius:99px; transition:width 900ms var(--ease-out); }
+.gauge .cap{ display:flex; justify-content:space-between; font-size:.75rem; color:var(--muted); margin-top:5px; }
+
+/* ---- charts ---- */
+.legend{ display:flex; gap:16px; font-size:.78rem; color:var(--text-2); margin-bottom:2px; flex-wrap:wrap; }
+.legend span{ display:inline-flex; align-items:center; gap:6px; }
+.swatch{ width:10px; height:10px; border-radius:3px; }
+svg .grow-bar{ transform:scaleX(0); transform-origin:left center; transition:transform 950ms var(--ease-out); }
+svg .grow-bar.on{ transform:scaleX(1); }
+.arc{ transition:stroke-dashoffset 1100ms var(--ease-out); }
+.hist-area{ opacity:0; transition:opacity 700ms ease; }
+.hist-area.on{ opacity:.16; }
+.hist-line{ stroke-dasharray:1400; stroke-dashoffset:1400; transition:stroke-dashoffset 1200ms var(--ease-out); }
+.hist-line.on{ stroke-dashoffset:0; }
+.cell{ opacity:0; transform:scale(.9); transition:opacity 400ms var(--ease-out), transform 400ms var(--ease-out); }
+.cell.on{ opacity:1; transform:none; }
+canvas.mean{ width:132px; height:132px; border-radius:12px; border:1px solid var(--border); image-rendering:auto; display:block; box-shadow:var(--shadow); }
+.meanrow{ display:flex; gap:16px; justify-content:center; }
+.meanrow figcaption{ text-align:center; font-size:.75rem; margin-top:7px; color:var(--text-2); font-weight:600; }
+
+/* ---- shimmer (retraining) & skeleton ---- */
+.shimmer{ background:linear-gradient(90deg,var(--muted) 30%, var(--text) 50%, var(--muted) 70%);
+  background-size:200% 100%; -webkit-background-clip:text; background-clip:text; color:transparent; animation:sweep 1.4s linear infinite; }
+@keyframes sweep{ to{ background-position:-200% 0 } }
+.skel{ background:linear-gradient(90deg,var(--surface-2) 25%, var(--border) 37%, var(--surface-2) 63%);
+  background-size:400% 100%; animation:skel 1.4s ease infinite; border-radius:6px; color:transparent!important; }
+@keyframes skel{ 0%{ background-position:100% 0 } 100%{ background-position:0 0 } }
+
+/* ---- success check ---- */
+.check{ width:22px; height:22px; }
+.check circle{ stroke-dasharray:70; stroke-dashoffset:70; }
+.check path{ stroke-dasharray:20; stroke-dashoffset:20; }
+.check.go circle{ animation:draw .4s var(--ease-out) forwards; }
+.check.go path{ animation:draw .3s .25s var(--ease-out) forwards; }
+@keyframes draw{ to{ stroke-dashoffset:0 } }
+
+.note{ font-size:.82rem; color:var(--text-2); margin-top:10px; white-space:pre-wrap; }
+.foot{ margin-top:26px; padding-top:18px; border-top:1px solid var(--border); color:var(--muted); font-size:.78rem; line-height:1.6; }
+.foot a{ color:var(--text-2); }
+
+/* ---- entrance stagger ---- */
+.reveal{ opacity:0; transform:translateY(10px); }
+.reveal.in{ animation:enter 560ms var(--ease-out) forwards; animation-delay:calc(var(--i,0)*60ms); }
+@keyframes enter{ to{ opacity:1; transform:none } }
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{ animation-duration:.001ms!important; animation-iteration-count:1!important; transition-duration:.001ms!important; }
+  .reveal{ opacity:1; transform:none; }
+  .verdict{ opacity:1; transform:none; }
+}
 </style>
 </head>
 <body>
-  <h1>🫁 Pneumonia Chest X-ray Classifier</h1>
-  <p class="sub">End-to-end ML pipeline — prediction, monitoring, data visualizations and one-click retraining</p>
+<div class="wrap">
 
-  <div class="grid">
+  <!-- HERO -->
+  <header class="hero reveal" style="--i:0">
+    <div class="lead">
+      <div class="logo">🫁</div>
+      <div>
+        <h1>Pneumonia Detection</h1>
+        <div class="sub">Chest X-ray classifier · live model dashboard</div>
+      </div>
+    </div>
+    <div class="side">
+      <div class="pill" id="pill"><span class="dot"></span><span id="pill-text">connecting…</span></div>
+      <button class="icon-btn" id="theme" title="Toggle theme" aria-label="Toggle light/dark theme"></button>
+    </div>
+  </header>
+
+  <!-- KPI TILES -->
+  <section class="grid kpis reveal" style="--i:1" id="kpis">
+    <div class="card kpi lift"><div class="label">Accuracy</div><div class="val" data-k="accuracy">—</div><div class="meter"><i data-m="accuracy"></i></div></div>
+    <div class="card kpi lift"><div class="label">Precision</div><div class="val" data-k="precision">—</div><div class="meter"><i data-m="precision"></i></div></div>
+    <div class="card kpi lift"><div class="label">Recall</div><div class="val" data-k="recall">—</div><div class="meter"><i data-m="recall"></i></div></div>
+    <div class="card kpi lift"><div class="label">F1 score</div><div class="val" data-k="f1_score">—</div><div class="meter"><i data-m="f1_score"></i></div></div>
+    <div class="card kpi lift"><div class="label">ROC AUC</div><div class="val" data-k="roc_auc">—</div><div class="meter"><i data-m="roc_auc"></i></div></div>
+  </section>
+
+  <!-- PREDICT + MODEL DETAILS -->
+  <section class="grid cols-2 reveal" style="--i:2">
     <div class="card">
-      <h2>Model Up-time &amp; Health</h2>
-      <div class="stat"><span>Status</span><span id="st-status" class="badge">…</span></div>
-      <div class="stat"><span>Up-time</span><span id="st-uptime">…</span></div>
-      <div class="stat"><span>Model last saved</span><span id="st-saved">…</span></div>
-      <div class="stat"><span>Model version</span><span id="st-note">…</span></div>
-      <div class="stat"><span>Test accuracy</span><span id="st-acc">…</span></div>
-      <div class="stat"><span>Test F1</span><span id="st-f1">…</span></div>
-      <div class="stat"><span>Retraining state</span><span id="st-retrain">…</span></div>
+      <div class="head"><h2>Predict a chest X-ray</h2></div>
+      <label class="drop" id="pdrop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <div id="pdrop-text">Drop an X-ray here, or click to browse<br><span style="font-size:.78rem">PNG / JPEG · try any file from <span class="mono">data/test/</span></span></div>
+        <input type="file" id="pfile" accept="image/*">
+      </label>
+      <button class="btn big" id="pbtn" style="margin-top:12px" disabled>Predict</button>
+      <div class="verdict" id="verdict"></div>
     </div>
 
     <div class="card">
-      <h2>Predict — single X-ray image</h2>
-      <input type="file" id="predict-file" accept="image/*">
-      <button onclick="doPredict()" id="predict-btn">Predict</button>
-      <div class="result" id="predict-result">Upload a chest X-ray (PNG/JPEG) and press Predict.</div>
+      <div class="head"><h2>Model &amp; production health</h2></div>
+      <div class="stat"><span class="k">Uptime</span><b id="s-uptime" class="mono">—</b></div>
+      <div class="stat"><span class="k">Last trained</span><b id="s-saved" class="mono">—</b></div>
+      <div class="stat"><span class="k">Version</span><b id="s-note" style="max-width:60%;font-size:.8rem;font-weight:500">—</b></div>
+      <div class="stat"><span class="k">Test set</span><b id="s-ntest">—</b></div>
+      <div style="margin-top:16px">
+        <div class="eyebrow" style="margin-bottom:8px">Confusion matrix · held-out test</div>
+        <div id="confusion"></div>
+      </div>
     </div>
-  </div>
+  </section>
 
-  <div class="card">
-    <h2>Dataset Visualizations &amp; Interpretations</h2>
-    <div class="grid">
-      <div>
-        <canvas id="chart-classes" height="220"></canvas>
-        <p class="interp"><b>Feature 1 — Class balance:</b> <span id="interp-classes"></span></p>
-      </div>
-      <div>
-        <canvas id="chart-brightness" height="220"></canvas>
-        <p class="interp"><b>Feature 2 — Brightness distribution:</b> <span id="interp-brightness"></span></p>
-      </div>
-      <div>
-        <canvas id="chart-contrast" height="220"></canvas>
-        <p class="interp"><b>Feature 3 — Contrast by class:</b> <span id="interp-contrast"></span></p>
-      </div>
-      <div>
-        <h2 style="font-size:.95rem">Mean image per class</h2>
-        <div class="meanrow">
-          <div><canvas class="mean" id="mean-NORMAL" width="64" height="64"></canvas><br>NORMAL</div>
-          <div><canvas class="mean" id="mean-PNEUMONIA" width="64" height="64"></canvas><br>PNEUMONIA</div>
+  <!-- VISUALIZATIONS -->
+  <section class="card reveal" style="--i:3">
+    <div class="head"><h2>Dataset visualizations &amp; interpretations</h2></div>
+    <div class="grid viz">
+      <figure>
+        <div class="eyebrow">Feature 1 · Class balance</div>
+        <div id="c-balance" style="margin:10px 0"></div>
+        <p class="prose" id="i-balance"></p>
+      </figure>
+      <figure>
+        <div class="eyebrow">Feature 2 · Pixel brightness (a negative result)</div>
+        <div id="c-bright" style="margin:10px 0"></div>
+        <p class="prose" id="i-bright"></p>
+      </figure>
+      <figure>
+        <div class="eyebrow">Feature 3 · Within-image contrast</div>
+        <div id="c-contrast" style="margin:10px 0"></div>
+        <p class="prose" id="i-contrast"></p>
+      </figure>
+      <figure>
+        <div class="eyebrow">Feature 4 · Mean image per class</div>
+        <div class="meanrow" style="margin:14px 0 4px">
+          <figure><canvas class="mean" id="mean-NORMAL" width="64" height="64" role="img" aria-label="Averaged NORMAL chest X-ray: pixel-wise mean of all NORMAL training images"></canvas><figcaption><span class="swatch" style="display:inline-block;background:var(--normal)"></span> NORMAL</figcaption></figure>
+          <figure><canvas class="mean" id="mean-PNEUMONIA" width="64" height="64" role="img" aria-label="Averaged PNEUMONIA chest X-ray: pixel-wise mean of all PNEUMONIA training images"></canvas><figcaption><span class="swatch" style="display:inline-block;background:var(--pneu)"></span> PNEUMONIA</figcaption></figure>
         </div>
-        <p class="interp"><b>Feature 4 — Average lung appearance:</b> <span id="interp-mean"></span></p>
-      </div>
+        <p class="prose" id="i-mean"></p>
+      </figure>
     </div>
-  </div>
+  </section>
 
-  <div class="grid">
+  <!-- UPLOAD + RETRAIN -->
+  <section class="grid cols-2 reveal" style="--i:4">
     <div class="card">
-      <h2>Upload bulk data for retraining</h2>
-      <select id="upload-label">
-        <option value="NORMAL">NORMAL</option>
-        <option value="PNEUMONIA">PNEUMONIA</option>
-      </select>
-      <input type="file" id="upload-files" accept="image/*" multiple>
-      <button onclick="doUpload()" id="upload-btn">Upload images</button>
-      <div class="result" id="upload-result">Select multiple labelled X-ray images to add to the retraining pool.</div>
+      <div class="head"><h2>Upload data for retraining</h2></div>
+      <select id="ulabel"><option value="NORMAL">Label: NORMAL</option><option value="PNEUMONIA">Label: PNEUMONIA</option></select>
+      <label class="drop" id="udrop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+        <div id="udrop-text">Drop many labelled X-rays here, or click to browse</div>
+        <input type="file" id="ufiles" accept="image/*" multiple>
+      </label>
+      <button class="btn big ghost" id="ubtn" style="margin-top:12px" disabled>Upload images</button>
+      <div class="note" id="uresult"></div>
     </div>
 
     <div class="card">
-      <h2>Trigger retraining</h2>
-      <p class="interp">Fine-tunes the saved model (used as a pre-trained base) on the original training set plus every uploaded image, then hot-swaps the new model into the running API.</p>
-      <button onclick="doRetrain()" id="retrain-btn">🔁 Retrain model</button>
-      <div class="result" id="retrain-result">Idle.</div>
+      <div class="head"><h2>Retrain the model</h2></div>
+      <p class="prose">Fine-tunes the saved model as a pre-trained base on the original training set plus every uploaded image, re-evaluates on the held-out test set, then hot-swaps the new model into the live API.</p>
+      <button class="btn big" id="rbtn" style="margin-top:14px">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+        Retrain model
+      </button>
+      <div class="note" id="rresult">Idle.</div>
     </div>
-  </div>
+  </section>
+
+  <footer class="foot">
+    Pediatric chest X-rays (Kermany et al., Guangzhou) · CC BY 4.0. A pipeline-engineering project, not a diagnostic tool.
+    <span id="foot-repo"></span>
+  </footer>
+</div>
 
 <script>
-const $ = id => document.getElementById(id);
+"use strict";
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+// fetch that treats HTTP 4xx/5xx as errors (fetch itself only rejects on network failure)
+async function jfetch(url, opts){ const res=await fetch(url,opts); if(!res.ok){ const e=await res.json().catch(()=>({})); throw new Error(e.detail || ("HTTP "+res.status)); } return res.json(); }
+const NS = "http://www.w3.org/2000/svg";
+const REDUCE = matchMedia("(prefers-reduced-motion: reduce)").matches;
+let REDRAW = false;   // true during a theme re-tint: paint charts in final state, skip the entrance replay
+const svgEl = (t, a={}) => { const e=document.createElementNS(NS,t); for(const k in a) e.setAttribute(k,a[k]); return e; };
+const titled = (el, txt) => { const t=svgEl("title"); t.textContent=txt; el.appendChild(t); return el; };   // native hover tooltip
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 
-async function refreshStatus() {
-  try {
-    const s = await (await fetch('/status')).json();
-    $('st-status').textContent = s.status.toUpperCase();
-    $('st-status').className = 'badge';
-    $('st-uptime').textContent = s.uptime_human;
-    $('st-saved').textContent = s.model_saved_at || 'n/a';
-    $('st-note').textContent = s.model_note || 'n/a';
+/* ---------- theme toggle (persisted, defaults to system) ---------- */
+const SUN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+const MOON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+function currentDark(){ const t=document.documentElement.getAttribute("data-theme"); return t? t==="dark" : matchMedia("(prefers-color-scheme: dark)").matches; }
+function paintThemeBtn(){ $("#theme").innerHTML = currentDark()? SUN : MOON; }
+(function initTheme(){ const s=localStorage.getItem("theme"); if(s) document.documentElement.setAttribute("data-theme",s); paintThemeBtn(); })();
+$("#theme").onclick = () => { const d=!currentDark(); document.documentElement.setAttribute("data-theme", d?"dark":"light"); localStorage.setItem("theme", d?"dark":"light"); paintThemeBtn(); REDRAW=true; if(vizData) drawAll(vizData); if(lastMetrics) drawConfusion(lastMetrics.confusion_matrix); REDRAW=false; };
+
+/* ---------- entrance stagger ---------- */
+addEventListener("DOMContentLoaded", () => requestAnimationFrame(() => $$(".reveal").forEach(e => e.classList.add("in"))));
+
+/* ---------- animated count-up ---------- */
+function countUp(node, to, {suffix="", decimals=0, dur=1000}={}){
+  if(REDUCE){ node.textContent = to.toFixed(decimals)+suffix; return; }
+  const from = 0, t0 = performance.now();
+  const tick = now => {
+    const p = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-p,3);      // easeOutCubic
+    node.textContent = (from+(to-from)*e).toFixed(decimals)+suffix;
+    if(p<1) requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+}
+
+/* ---------- status polling + live uptime ---------- */
+let uptimeBase=0, uptimeAt=0, lastMetrics=null, kpisDrawn=false;
+function fmtUptime(s){ s=Math.max(0,Math.floor(s)); const d=s/86400|0,h=s/3600%24|0,m=s/60%60|0,x=s%60; return `${d}d ${String(h).padStart(2,"0")}h ${String(m).padStart(2,"0")}m ${String(x).padStart(2,"0")}s`; }
+setInterval(() => { if(uptimeAt) $("#s-uptime").textContent = fmtUptime(uptimeBase+(performance.now()-uptimeAt)/1000); }, 1000);
+
+async function refreshStatus(animate=false){
+  try{
+    const s = await (await fetch("/status")).json();
+    $("#pill").classList.remove("down");
+    $("#pill-text").textContent = s.status==="up" ? "Operational" : "Degraded";
+    uptimeBase = s.uptime_seconds ?? 0; uptimeAt = performance.now();
+    $("#s-uptime").textContent = s.uptime_human || "—";
+    $("#s-saved").textContent = (s.model_saved_at||"—").replace(" ","·");
+    $("#s-note").textContent = s.model_note || "—";
     const m = s.model_metrics || {};
-    $('st-acc').textContent = m.accuracy ? (m.accuracy*100).toFixed(2)+'%' : 'n/a';
-    $('st-f1').textContent = m.f1_score ? m.f1_score.toFixed(4) : 'n/a';
-    $('st-retrain').textContent = s.retraining;
-  } catch {
-    $('st-status').textContent = 'DOWN';
-    $('st-status').className = 'badge down';
+    lastMetrics = m;
+    $("#s-ntest").textContent = m.n_test ? m.n_test+" images" : "—";
+    if(m.accuracy!=null && (animate || !kpisDrawn)){ drawKpis(m); drawConfusion(m.confusion_matrix); kpisDrawn=true; }
+  }catch(e){
+    $("#pill").classList.add("down"); $("#pill-text").textContent="Offline";
   }
 }
-refreshStatus(); setInterval(refreshStatus, 5000);
-
-async function doPredict() {
-  const f = $('predict-file').files[0];
-  if (!f) return alert('Choose an image first.');
-  $('predict-btn').disabled = true;
-  const fd = new FormData(); fd.append('file', f);
-  try {
-    const r = await (await fetch('/predict', {method:'POST', body:fd})).json();
-    const cls = r.prediction === 'PNEUMONIA' ? 'pneumonia' : 'normal';
-    $('predict-result').innerHTML =
-      `Prediction: <span class="${cls}">${r.prediction}</span>\n` +
-      `Pneumonia probability: ${(r.pneumonia_probability*100).toFixed(1)}%\n` +
-      `Confidence: ${(r.confidence*100).toFixed(1)}%`;
-  } catch(e) { $('predict-result').textContent = 'Error: ' + e; }
-  $('predict-btn').disabled = false;
+function drawKpis(m){
+  $$(".kpi").forEach(tile=>{
+    const k = tile.querySelector(".val").dataset.k, v = m[k];
+    if(v==null) return;
+    countUp(tile.querySelector(".val"), v*100, {suffix:"%", decimals:2});
+    requestAnimationFrame(()=> tile.querySelector("[data-m]").style.width = (v*100)+"%");
+  });
 }
 
-async function doUpload() {
-  const files = $('upload-files').files;
-  if (!files.length) return alert('Choose one or more images.');
-  $('upload-btn').disabled = true;
-  const fd = new FormData();
-  for (const f of files) fd.append('files', f);
-  fd.append('label', $('upload-label').value);
-  try {
-    const r = await (await fetch('/upload', {method:'POST', body:fd})).json();
-    $('upload-result').textContent =
-      `Saved ${r.saved} image(s) as ${r.label}. Pending retraining pool: ${r.total_pending_upload_images} image(s).`;
-  } catch(e) { $('upload-result').textContent = 'Error: ' + e; }
-  $('upload-btn').disabled = false;
+/* ---------- confusion matrix (2x2 sequential heatmap) ---------- */
+function drawConfusion(cm){
+  if(!cm) return;
+  const [[tn,fp],[fn,tp]] = cm, max = Math.max(tn,fp,fn,tp);
+  const ramp = [css("--seq-1"),css("--seq-2"),css("--seq-3"),css("--seq-4")];
+  const shade = v => ramp[Math.min(3, Math.floor((v/max)*3.999))];
+  // pick ink from the cell background's own luminance so it works in BOTH ramps (light + dark)
+  const inkFor = hex => { const m=(hex||"").replace("#","").match(/../g); if(!m) return css("--text"); const [r,g,b]=m.map(h=>parseInt(h,16)); return (0.2126*r+0.7152*g+0.0722*b)>140 ? "#141413" : "#ffffff"; };
+  const desc = {TN:"True negative — healthy correctly cleared", FP:"False positive — healthy flagged as pneumonia", FN:"False negative — pneumonia missed", TP:"True positive — pneumonia caught"};
+  const cells = [["TN",tn],["FP",fp],["FN",fn],["TP",tp]];
+  const host = $("#confusion"); host.innerHTML="";
+  const grid = document.createElement("div");
+  grid.style.cssText="display:grid;grid-template-columns:repeat(2,1fr);gap:4px;max-width:280px";
+  cells.forEach(([lab,v],idx)=>{
+    const c=document.createElement("div"); c.className="cell"; c.title=`${desc[lab]} · ${v} cases`;
+    c.style.cssText=`background:${shade(v)};color:${inkFor(shade(v))};border-radius:8px;padding:12px 10px;text-align:center`;
+    c.innerHTML=`<div style="font-size:1.3rem;font-weight:700;font-variant-numeric:tabular-nums">${v}</div><div style="font-size:.66rem;opacity:.85;letter-spacing:.05em">${lab}</div>`;
+    grid.appendChild(c); (REDRAW||REDUCE) ? c.classList.add("on") : setTimeout(()=>c.classList.add("on"), 80*idx+120);
+  });
+  host.appendChild(grid);
+  const leg=document.createElement("div"); leg.className="prose"; leg.style.cssText="font-size:.72rem;margin-top:8px";
+  leg.textContent="Rows = actual, columns = predicted (NORMAL, PNEUMONIA). TP catches pneumonia; FN misses it.";
+  host.appendChild(leg);
 }
 
-async function doRetrain() {
-  $('retrain-btn').disabled = true;
-  try {
-    const r = await fetch('/retrain', {method:'POST'});
-    $('retrain-result').textContent = (await r.json()).message || 'started';
+/* ---------- predict ---------- */
+const pfile=$("#pfile"), pbtn=$("#pbtn"), pdrop=$("#pdrop");
+wireDrop(pdrop, pfile, files=>{
+  const f=files[0]; if(!f) return;
+  pbtn.disabled=false;
+  const url=URL.createObjectURL(f);
+  $("#pdrop-text").innerHTML=`<img class="thumb" src="${url}" alt="preview">${f.name}`;
+});
+pbtn.onclick = async () => {
+  const f=pfile.files[0]; if(!f) return;
+  pbtn.disabled=true; pbtn.textContent="Analyzing…";
+  const fd=new FormData(); fd.append("file",f);
+  try{
+    const r = await jfetch("/predict",{method:"POST",body:fd});
+    const isP = r.prediction==="PNEUMONIA", col = isP?"var(--pneu)":"var(--normal)", prob=r.pneumonia_probability*100;
+    const v=$("#verdict"); v.classList.remove("show"); void v.offsetWidth;
+    v.innerHTML=`
+      <div class="cls"><span>${r.prediction}</span><span class="tag ${isP?'pneu':'normal'}">${(r.confidence*100).toFixed(1)}% confidence</span></div>
+      <div class="gauge"><div class="track"><i id="gfill" style="background:${col}"></i></div>
+      <div class="cap"><span>pneumonia probability</span><span class="mono">${prob.toFixed(1)}%</span></div></div>`;
+    v.classList.add("show");
+    requestAnimationFrame(()=> $("#gfill").style.width = prob+"%");
+  }catch(e){ $("#verdict").innerHTML=`<div class="note" style="color:var(--critical)">Prediction failed: ${e.message}</div>`; $("#verdict").classList.add("show"); }
+  pbtn.disabled=false; pbtn.textContent="Predict";
+};
+
+/* ---------- upload ---------- */
+const ufiles=$("#ufiles"), ubtn=$("#ubtn"), udrop=$("#udrop");
+wireDrop(udrop, ufiles, files=>{ ubtn.disabled = !files.length; $("#udrop-text").textContent = files.length ? `${files.length} image(s) ready to upload` : "Drop many labelled X-rays here, or click to browse"; });
+ubtn.onclick = async () => {
+  const files=ufiles.files; if(!files.length) return;
+  ubtn.disabled=true; ubtn.textContent="Uploading…";
+  const fd=new FormData(); for(const f of files) fd.append("files",f); fd.append("label",$("#ulabel").value);
+  try{
+    const r = await jfetch("/upload",{method:"POST",body:fd});
+    $("#uresult").textContent=`Saved ${r.saved} image(s) as ${r.label}. Retraining pool: ${r.total_pending_upload_images} pending.`;
+  }catch(e){ $("#uresult").textContent="Error: "+e.message; }
+  ubtn.textContent="Upload images"; ubtn.disabled=false;
+};
+
+/* ---------- retrain ---------- */
+const rbtn=$("#rbtn"), rres=$("#rresult");
+rbtn.onclick = async () => {
+  rbtn.disabled=true;
+  try{
+    const r = await jfetch("/retrain",{method:"POST"});
+    rres.innerHTML=`<span class="shimmer">${r.message||"Retraining started…"}</span>`;
     pollRetrain();
-  } catch(e) { $('retrain-result').textContent = 'Error: ' + e; $('retrain-btn').disabled = false; }
+  }catch(e){ rres.textContent="Error: "+e.message; rbtn.disabled=false; }
+};
+async function pollRetrain(){
+  try{
+    const s = await (await fetch("/retrain/status")).json();
+    if(s.status==="running"){ rres.innerHTML=`<span class="shimmer">Fine-tuning &amp; re-evaluating… (started ${s.started_at})</span>`; setTimeout(pollRetrain,3000); return; }
+    if(s.status==="done"){
+      const acc = s.detail?.metrics?.accuracy, n = s.detail?.n_new_uploaded;
+      rres.innerHTML=`<span style="display:inline-flex;align-items:center;gap:8px;color:var(--good)"><svg class="check" viewBox="0 0 24 24" fill="none" stroke="var(--good)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M7 12.5l3.2 3.2L17 8.5"/></svg> Done — hot-swapped into the live API.</span>`
+        + `<div class="note">Trained on base + ${n||0} uploaded image(s).${acc!=null?` New test accuracy ${(acc*100).toFixed(2)}%.`:""}</div>`;
+      requestAnimationFrame(()=> rres.querySelector(".check").classList.add("go"));
+      refreshStatus(true);
+    } else { rres.textContent = `Status: ${s.status} — ${typeof s.detail==="string"?s.detail:""}`; }
+    rbtn.disabled=false;
+  }catch(e){ rres.textContent="Error: "+e; rbtn.disabled=false; }
 }
-async function pollRetrain() {
-  const s = await (await fetch('/retrain/status')).json();
-  if (s.status === 'running') {
-    $('retrain-result').textContent = `Retraining… (started ${s.started_at})`;
-    setTimeout(pollRetrain, 3000);
-  } else {
-    $('retrain-result').textContent = `Status: ${s.status}\n` + JSON.stringify(s.detail, null, 1);
-    $('retrain-btn').disabled = false;
-    refreshStatus();
-  }
+
+/* ---------- drag & drop helper ---------- */
+function wireDrop(zone, input, onFiles){
+  zone.addEventListener("dragover", e=>{ e.preventDefault(); zone.classList.add("hot"); });
+  zone.addEventListener("dragleave", ()=> zone.classList.remove("hot"));
+  zone.addEventListener("drop", e=>{ e.preventDefault(); zone.classList.remove("hot"); if(e.dataTransfer.files.length){ input.files=e.dataTransfer.files; onFiles(input.files); } });
+  input.addEventListener("change", ()=> onFiles(input.files));
 }
 
-const chartOpts = { plugins:{legend:{labels:{color:'#e2e8f0'}}},
-  scales:{ x:{ticks:{color:'#94a3b8'},grid:{color:'#334155'}}, y:{ticks:{color:'#94a3b8'},grid:{color:'#334155'}} } };
+/* ============================================================================
+   VISUALIZATIONS — hand-rolled animated SVG (no chart library)
+   ========================================================================== */
+let vizData=null;
+async function loadViz(){ try{ vizData = await (await fetch("/visualizations")).json(); drawAll(vizData); }catch(e){ console.error("viz",e); } }
+function drawAll(v){
+  const c=v.classes; if(!c||!c.NORMAL||!c.PNEUMONIA) return;
+  drawBalance(c); drawBrightness(c); drawContrast(c); drawMeans(c); writeInterps(c);
+}
+const on = node => (REDRAW||REDUCE) ? node.classList.add("on") : requestAnimationFrame(()=> requestAnimationFrame(()=> node.classList.add("on")));
 
-async function loadViz() {
-  const v = await (await fetch('/visualizations')).json();
-  const c = v.classes; if (!c) return;
-  const names = ['NORMAL','PNEUMONIA'].filter(n => c[n]);
-  const counts = names.map(n => c[n].count);
+/* Feature 1 — class balance donut */
+function drawBalance(c){
+  const host=$("#c-balance"); host.innerHTML="";
+  const nN=c.NORMAL.count, nP=c.PNEUMONIA.count, tot=nN+nP, R=58, CX=70, CY=70, C=2*Math.PI*R, gap=6;
+  const svg=svgEl("svg",{viewBox:"0 0 240 140", width:"100%", height:"150"});
+  const g=svgEl("g",{transform:`rotate(-90 ${CX} ${CY})`});
+  const mk=(frac,color,off,lab,val)=>{ const len=Math.max(0,frac*C-gap); const ci=svgEl("circle",{cx:CX,cy:CY,r:R,fill:"none",stroke:color,"stroke-width":16,"stroke-linecap":"round"}); ci.setAttribute("stroke-dasharray",`${len} ${C-len}`); ci.setAttribute("stroke-dashoffset", C); ci.setAttribute("class","arc"); ci.dataset.off=off; titled(ci,`${lab}: ${val.toLocaleString()} (${(frac*100).toFixed(1)}%)`); g.appendChild(ci); return ci; };
+  const a1=mk(nN/tot, css("--normal"), 0, "NORMAL", nN);
+  const a2=mk(nP/tot, css("--pneu"), -(nN/tot*C), "PNEUMONIA", nP);
+  svg.appendChild(g);
+  const t1=svgEl("text",{x:CX,y:CY-2,"text-anchor":"middle","font-size":"22","font-weight":"700",fill:css("--text")}); t1.textContent=tot.toLocaleString();
+  const t2=svgEl("text",{x:CX,y:CY+16,"text-anchor":"middle","font-size":"10",fill:css("--muted")}); t2.textContent="training images";
+  svg.appendChild(t1); svg.appendChild(t2);
+  // right-side labels
+  const rows=[["NORMAL",nN,css("--normal")],["PNEUMONIA",nP,css("--pneu")]];
+  rows.forEach(([lab,val,col],i)=>{ const y=50+i*38;
+    svg.appendChild(svgEl("rect",{x:150,y:y-9,width:11,height:11,rx:3,fill:col}));
+    const l=svgEl("text",{x:167,y:y,"font-size":"11",fill:css("--text-2")}); l.textContent=lab; svg.appendChild(l);
+    const n=svgEl("text",{x:167,y:y+15,"font-size":"13","font-weight":"700",fill:css("--text")}); n.textContent=`${val.toLocaleString()} · ${(val/tot*100).toFixed(1)}%`; svg.appendChild(n);
+  });
+  host.appendChild(svg);
+  const applyArc = () => [a1,a2].forEach(a=> a.style.strokeDashoffset = a.dataset.off);
+  (REDRAW||REDUCE) ? applyArc() : requestAnimationFrame(()=> requestAnimationFrame(applyArc));
+}
 
-  new Chart($('chart-classes'), { type:'bar',
-    data:{ labels:names, datasets:[{label:'Training images', data:counts, backgroundColor:['#4ade80','#f87171']}]},
-    options:chartOpts });
-  const total = counts.reduce((a,b)=>a+b,0);
-  const pct = (100*counts[1]/total).toFixed(1);
-  $('interp-classes').textContent =
-    `The training set holds ${total} images: ${counts[0]} NORMAL vs ${counts[1]} PNEUMONIA — a real ${pct}% / ${(100-pct).toFixed(1)}% imbalance, not a balanced set. This matters twice over. First, a lazy model that always guessed "PNEUMONIA" would score 62.5% on the test set, so that — not 50% — is the bar any accuracy claim must clear. Second, unchecked imbalance biases the model toward the majority class, so training applies class weights (NORMAL ×1.94, PNEUMONIA ×0.67) to penalise mistakes on the rarer NORMAL class proportionally harder.`;
+/* Feature 2 — brightness histogram, overlaid areas + lines */
+function drawBrightness(c){
+  const host=$("#c-bright"); host.innerHTML="";
+  const W=340,H=150,PL=6,PR=6,PT=8,PB=22, iw=W-PL-PR, ih=H-PT-PB;
+  const bins=20, maxY=Math.max(...c.NORMAL.brightness_hist, ...c.PNEUMONIA.brightness_hist);
+  const x=i=> PL + (i/(bins-1))*iw, y=v=> PT + ih - (v/maxY)*ih;
+  const svg=svgEl("svg",{viewBox:`0 0 ${W} ${H}`, width:"100%", height:"160"});
+  // baseline
+  svg.appendChild(svgEl("line",{x1:PL,y1:PT+ih,x2:W-PR,y2:PT+ih,stroke:css("--border"),"stroke-width":1}));
+  [["NORMAL",c.NORMAL,css("--normal")],["PNEUMONIA",c.PNEUMONIA,css("--pneu")]].forEach(([nm,cl,col])=>{
+    const pts=cl.brightness_hist.map((v,i)=>`${x(i)},${y(v)}`).join(" ");
+    const area=svgEl("polygon",{points:`${PL},${PT+ih} ${pts} ${W-PR},${PT+ih}`,fill:col,class:"hist-area"});
+    titled(area,`${nm} brightness distribution · mean ${cl.mean_brightness.toFixed(1)} / 255`);
+    const line=svgEl("polyline",{points:pts,fill:"none",stroke:col,"stroke-width":2,"stroke-linejoin":"round",class:"hist-line"});
+    svg.appendChild(area); svg.appendChild(line); on(area); on(line);
+    // mean marker
+    const mx=PL+(cl.mean_brightness/255)*iw;
+    svg.appendChild(svgEl("line",{x1:mx,y1:PT,x2:mx,y2:PT+ih,stroke:col,"stroke-width":1,"stroke-dasharray":"3 3",opacity:.7}));
+  });
+  ["0","128","255"].forEach((t,i)=>{ const tx=PL+(i/2)*iw; const e=svgEl("text",{x:tx,y:H-6,"font-size":"9",fill:css("--muted"),"text-anchor":i==0?"start":i==2?"end":"middle"}); e.textContent=t; svg.appendChild(e); });
+  host.appendChild(svg);
+  host.insertAdjacentHTML("beforeend",`<div class="legend"><span><i class="swatch" style="background:var(--normal)"></i>NORMAL (μ ${c.NORMAL.mean_brightness.toFixed(1)})</span><span><i class="swatch" style="background:var(--pneu)"></i>PNEUMONIA (μ ${c.PNEUMONIA.mean_brightness.toFixed(1)})</span></div>`);
+}
 
-  new Chart($('chart-brightness'), { type:'line',
-    data:{ labels:[...Array(20).keys()].map(i=>Math.round(i*12.75)),
-      datasets: names.map((n,i)=>({label:n, data:c[n].brightness_hist, borderColor:i? '#f87171':'#4ade80', fill:false, tension:.3}))},
-    options:chartOpts });
-  $('interp-brightness').textContent =
-    `A negative result, and the most instructive chart here. Textbook intuition says pneumonia should look brighter — infection fills air sacs with fluid that absorbs X-rays and shows as white opacity. It does not hold: NORMAL ${c.NORMAL.mean_brightness.toFixed(1)} vs PNEUMONIA ${c.PNEUMONIA.mean_brightness.toFixed(1)} on a 0–255 scale (Cohen's d = 0.04, p = 0.09 — statistically indistinguishable), and the two curves sit almost on top of each other. Pneumonia is a *localised* opacity; averaging every pixel dilutes it into the ribs, heart and background until the signal vanishes. Whole-image brightness is a dud feature, and that is exactly why the CNN — which reads local spatial pattern rather than a global average — is the right tool.`;
+/* Feature 3 — contrast bars */
+function drawContrast(c){
+  const host=$("#c-contrast"); host.innerHTML="";
+  const items=[["NORMAL",c.NORMAL.mean_contrast,css("--normal")],["PNEUMONIA",c.PNEUMONIA.mean_contrast,css("--pneu")]];
+  const max=Math.max(...items.map(i=>i[1]))*1.12, W=340,H=120,PL=6,PT=6, bh=30, gap=24, bw=W-140;
+  const svg=svgEl("svg",{viewBox:`0 0 ${W} ${H}`, width:"100%", height:"130"});
+  items.forEach(([lab,val,col],i)=>{
+    const y=PT+i*(bh+gap);
+    const lb=svgEl("text",{x:PL,y:y+bh/2+4,"font-size":"11",fill:css("--text-2")}); lb.textContent=lab; svg.appendChild(lb);
+    svg.appendChild(svgEl("rect",{x:96,y:y,width:bw,height:bh,rx:6,fill:css("--surface-2")}));
+    const w=(val/max)*bw;
+    const bar=svgEl("rect",{x:96,y:y,width:w,height:bh,rx:6,fill:col,class:"grow-bar"});
+    titled(bar,`${lab}: mean within-image contrast ${val.toFixed(1)}`);
+    svg.appendChild(bar); on(bar);
+    const vv=svgEl("text",{x:96+w+8,y:y+bh/2+4,"font-size":"13","font-weight":"700",fill:css("--text")}); vv.textContent=val.toFixed(1); svg.appendChild(vv);
+  });
+  host.appendChild(svg);
+}
 
-  new Chart($('chart-contrast'), { type:'bar',
-    data:{ labels:names, datasets:[{label:'Mean within-image contrast (std of pixels)',
-      data:names.map(n=>c[n].mean_contrast), backgroundColor:['#4ade80','#f87171']}]},
-    options:chartOpts });
-  $('interp-contrast').textContent =
-    `Where brightness failed, contrast delivers. Healthy lungs are air-filled and near-black against bright ribs and heart, giving HIGH contrast (NORMAL: ${c.NORMAL.mean_contrast.toFixed(1)}). Pneumonic consolidation floods those dark air spaces with white opacity, pulling the image toward mid-grey and LOWERING contrast (PNEUMONIA: ${c.PNEUMONIA.mean_contrast.toFixed(1)}). Cohen's d = −0.62 (p ≈ 10⁻¹³²) — a genuine medium effect. The disease's signature survives averaging here because replacing air with fluid compresses the *spread* of pixel values even when it leaves the mean untouched.`;
-
-  for (const n of names) {
-    const ctx = $('mean-'+n).getContext('2d');
-    const im = ctx.createImageData(64,64);
-    c[n].mean_image.forEach((row,y)=>row.forEach((p,x)=>{
-      const i=(y*64+x)*4; im.data[i]=im.data[i+1]=im.data[i+2]=p; im.data[i+3]=255; }));
+/* Feature 4 — mean images */
+function drawMeans(c){
+  ["NORMAL","PNEUMONIA"].forEach(n=>{
+    const cv=$("#mean-"+n); if(!cv||!c[n].mean_image) return;
+    const ctx=cv.getContext("2d"), im=ctx.createImageData(64,64);
+    c[n].mean_image.forEach((row,y)=>row.forEach((p,x)=>{ const i=(y*64+x)*4; im.data[i]=im.data[i+1]=im.data[i+2]=p; im.data[i+3]=255; }));
     ctx.putImageData(im,0,0);
-  }
-  $('interp-mean').textContent =
-    'Averaging every training image per class cancels individual anatomy and leaves the population fingerprint: the NORMAL mean keeps darker, more sharply outlined lung fields, while the PNEUMONIA mean is hazier and softer through the lung zones. The story the features tell together: pneumonia is not globally brighter, it is locally hazier and lower-contrast in the lung fields specifically. A single number per image cannot capture "where" — which is the whole argument for a convolutional model over hand-crafted statistics.';
+  });
 }
+
+/* interpretations — humanized, no em dashes */
+function writeInterps(c){
+  const nN=c.NORMAL.count, nP=c.PNEUMONIA.count, tot=nN+nP, pP=(nP/tot*100).toFixed(1), pN=(nN/tot*100).toFixed(1);
+  $("#i-balance").textContent = `The training set holds ${tot.toLocaleString()} images: ${nN.toLocaleString()} NORMAL against ${nP.toLocaleString()} PNEUMONIA, a real ${pP}% / ${pN}% imbalance rather than a balanced set. It matters twice. A model that always guessed PNEUMONIA would already score 62.5% on the test set, so that, not 50%, is the bar any accuracy claim has to clear. And unchecked imbalance biases the model toward the majority class, so training applies class weights (NORMAL ×1.94, PNEUMONIA ×0.67) to penalise mistakes on the rarer NORMAL class proportionally harder.`;
+  $("#i-bright").textContent = `A negative result, and the most instructive chart here. Textbook intuition says pneumonia should look brighter, since infection fills the air sacs with fluid that absorbs X-rays and shows as white opacity. It does not hold: NORMAL ${c.NORMAL.mean_brightness.toFixed(1)} against PNEUMONIA ${c.PNEUMONIA.mean_brightness.toFixed(1)} on a 0 to 255 scale (Cohen's d = 0.04, p = 0.09, statistically indistinguishable), and the two curves sit almost on top of each other. Pneumonia is a localised opacity, so averaging every pixel dilutes it into the ribs, heart and background until the signal vanishes. Whole-image brightness is a dud feature, which is exactly why a CNN that reads local spatial pattern is the right tool.`;
+  $("#i-contrast").textContent = `Where brightness failed, contrast delivers. Healthy lungs are air-filled and near-black against bright ribs and heart, giving a high spread of pixel values (NORMAL: ${c.NORMAL.mean_contrast.toFixed(1)}). Pneumonic consolidation floods those dark spaces with white opacity, pulling the image toward mid-grey and compressing the spread (PNEUMONIA: ${c.PNEUMONIA.mean_contrast.toFixed(1)}). Cohen's d = -0.62 (p ≈ 10⁻¹³²), a genuine medium effect. The signature survives averaging because replacing air with fluid compresses the spread of pixel values even when it leaves the mean untouched.`;
+  $("#i-mean").textContent = `Averaging every training image per class cancels individual anatomy and leaves the population fingerprint. The NORMAL mean keeps darker, more sharply outlined lung fields, while the PNEUMONIA mean is hazier and softer through the lung zones. Together the features tell one story: pneumonia is not globally brighter, it is locally hazier and lower in contrast, in the lung fields specifically. A single number per image cannot capture where, and that is the whole argument for a convolutional model over hand-crafted statistics.`;
+}
+
+/* ---------- boot ---------- */
+refreshStatus(); setInterval(()=>refreshStatus(false), 5000);
 loadViz();
 </script>
 </body>

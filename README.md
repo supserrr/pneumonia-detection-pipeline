@@ -321,8 +321,10 @@ All three came from distrusting a convenient number. Each is written up in the n
 
 ## Tech stack
 
-TensorFlow/Keras · FastAPI · Uvicorn · scikit-learn · SciPy · Pillow · NumPy · Chart.js · Locust ·
-Docker · nginx · Render
+TensorFlow/Keras · FastAPI · Uvicorn · scikit-learn · SciPy · Pillow · NumPy · Locust ·
+Docker · nginx · Render. The dashboard is dependency-free vanilla JS with hand-rolled, animated SVG
+charts (no chart library, no external fonts or CDNs), so it loads instantly and is theme-aware
+(light/dark).
 
 ## Data attribution
 
