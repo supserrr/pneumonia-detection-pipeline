@@ -1,0 +1,16 @@
+# Render.com blueprint — deploys the API + UI as a Docker service.
+# Deploy: push this repo to GitHub -> render.com -> New -> Blueprint -> select the repo.
+services:
+  - type: web
+    name: pneumonia-xray-classifier
+    runtime: docker
+    plan: starter          # 'free' also works; starter has more RAM for TensorFlow
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /status
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.10"
+      # keep each container single-threaded so replicas scale cleanly (see results/)
+      - key: OMP_NUM_THREADS
+        value: "1"
