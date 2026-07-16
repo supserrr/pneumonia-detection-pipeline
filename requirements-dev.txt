@@ -1,0 +1,10 @@
+# Development / evaluation dependencies — needed to run the notebook and the
+# Locust flood simulation, but NOT to serve the API.
+# Install with:  pip install -r requirements-dev.txt
+-r requirements.txt
+
+matplotlib>=3.7      # notebook plots
+pandas>=1.4          # notebook threshold-sweep table
+scipy>=1.10          # notebook t-tests / effect sizes
+jupyter>=1.0         # to run the notebook
+locust>=2.30         # flood request simulation

@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# OS junk
+.DS_Store
+__MACOSX/
+Thumbs.db
+
+# Raw / transient data (data/train and data/test ARE committed; these are not)
+data/raw/
+data/uploads/
+data/uploads_archive/
+
+# Credentials — never commit these
+kaggle.json
+.kaggle/
+
+# Locust scratch output
+locust/*.csv

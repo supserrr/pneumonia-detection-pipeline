@@ -1,0 +1,10 @@
+# Runtime dependencies — everything needed to SERVE the API (this is what the
+# Dockerfile installs). scikit-learn is required at runtime, not just for the
+# notebook: the /retrain endpoint uses train_test_split and sklearn.metrics.
+tensorflow==2.15.0
+numpy<2
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9
+pillow>=10.0
+scikit-learn>=1.3
