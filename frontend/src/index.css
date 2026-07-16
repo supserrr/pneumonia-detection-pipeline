@@ -19,12 +19,12 @@
   --chart-4: #FF4D50;
   --chart-5: #0099FF;
   --chart-active-dot: #000;
-  --grid: rgba(0, 0, 0, 0.08);
+  --grid: rgba(0, 0, 0, 0.10);
 }
 
 .dark {
-  --background: oklch(22.71% 0.0252 182.05);
-  --secondary-background: oklch(23.93% 0 0);
+  --background: oklch(18.5% 0.022 185);
+  --secondary-background: oklch(30% 0.028 186);
   --foreground: oklch(92.49% 0 0);
   --main-foreground: oklch(0% 0 0);
   --main: oklch(70.54% 0.1525 162.97);
@@ -37,7 +37,7 @@
   --chart-4: #FF6669;
   --chart-5: #008AE5;
   --chart-active-dot: #fff;
-  --grid: rgba(255, 255, 255, 0.12);
+  --grid: rgba(255, 255, 255, 0.16);
 }
 
 @theme inline {
