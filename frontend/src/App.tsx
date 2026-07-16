@@ -13,8 +13,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/lib/utils"
 import * as api from "@/lib/api"
 
-const BLUE = "#2a78d6"
-const ORANGE = "#eb6834"
+// data colors from the theme's chart palette (chart-5 blue, chart-4 red)
+const BLUE = "#0099FF"    // NORMAL
+const ORANGE = "#FF4D50"  // PNEUMONIA
 const pct = (v?: number) => (v == null ? "—" : (v * 100).toFixed(2) + "%")
 const fmtUptime = (s: number) => {
   s = Math.max(0, Math.floor(s))
@@ -262,7 +263,7 @@ export default function App() {
   const c = viz?.classes
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-base">
+    <div className="min-h-screen gridbg text-foreground font-base">
       <div className="max-w-[1280px] mx-auto px-5 py-8 space-y-8">
 
         {/* header */}

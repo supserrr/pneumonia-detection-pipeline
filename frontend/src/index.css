@@ -68,15 +68,19 @@
 @layer base {
   body {
     @apply text-foreground font-base bg-background;
-    /* neobrutalism grid background (theme-aware, subtle) */
-    background-image:
-      linear-gradient(to right, var(--grid) 1px, transparent 1px),
-      linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
-    background-size: 42px 42px;
-    background-position: -1px -1px;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
   }
+}
+
+/* full-page neobrutalism grid, applied to the app shell so nothing paints over it */
+.gridbg {
+  background-color: var(--background);
+  background-image:
+    linear-gradient(to right, var(--grid) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid) 1px, transparent 1px);
+  background-size: 42px 42px;
+  background-position: -1px -1px;
 }
