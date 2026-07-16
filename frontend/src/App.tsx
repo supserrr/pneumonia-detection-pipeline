@@ -86,7 +86,7 @@ function Confusion({ cm }: { cm: number[][] }) {
     <div className="grid grid-cols-2 gap-2">
       {cells.map(([lab, v, correct]) => (
         <div key={lab} className={cn("border-2 border-border rounded-base p-3 text-center shadow-shadow",
-          correct ? "bg-main text-main-foreground" : "bg-secondary-background")}>
+          correct ? "bg-main text-main-foreground" : "bg-background")}>
           <div className="font-heading text-2xl tabular-nums">{v}</div>
           <div className="text-[11px] opacity-80">{lab}</div>
         </div>
@@ -165,7 +165,8 @@ function MeanImage({ arr, label, color }: { arr?: number[][]; label: string; col
   return (
     <div className="text-center">
       <canvas ref={ref} width={64} height={64}
-        className="w-[112px] h-[112px] border-2 border-border rounded-base shadow-shadow mx-auto"
+        className="w-32 h-32 border-2 border-border rounded-base shadow-shadow mx-auto"
+        style={{ imageRendering: "pixelated" }}
         role="img" aria-label={`Averaged ${label} chest X-ray`} />
       <div className="mt-2 text-xs font-heading" style={{ color }}>{label}</div>
     </div>
@@ -288,7 +289,7 @@ export default function App() {
           <Card className="col-span-2 lg:col-span-5 lg:row-span-2">
             <CardHeader><CardTitle className="text-xl">Predict a chest X-ray</CardTitle></CardHeader>
             <CardContent className="flex-1 flex flex-col gap-3">
-              <label className="flex-1 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-base bg-secondary-background p-8 text-center cursor-pointer hover:bg-main/10 min-h-[150px]">
+              <label className="flex-1 flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-base bg-background p-8 text-center cursor-pointer hover:bg-main/10 min-h-[150px]">
                 {preview
                   ? <img src={preview} alt="preview" className="w-24 h-24 object-cover border-2 border-border rounded-base" />
                   : <Upload className="opacity-70 size-7" />}
@@ -300,7 +301,7 @@ export default function App() {
               </Button>
               {predErr && <div className="text-sm font-heading text-[oklch(67.28%_0.2147_24.22)]">{predErr}</div>}
               {pred && (
-                <div className="border-2 border-border rounded-base p-4 bg-secondary-background space-y-2">
+                <div className="border-2 border-border rounded-base p-4 bg-background space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="font-heading text-2xl" style={{ color: pred.prediction === "PNEUMONIA" ? ORANGE : BLUE }}>{pred.prediction}</span>
                     <Badge variant="neutral">{(pred.confidence * 100).toFixed(1)}% confidence</Badge>
@@ -417,7 +418,7 @@ export default function App() {
                   <SelectItem value="PNEUMONIA">Label: PNEUMONIA</SelectItem>
                 </SelectContent>
               </Select>
-              <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-base bg-secondary-background p-6 text-center cursor-pointer hover:bg-main/10">
+              <label className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-border rounded-base bg-background p-6 text-center cursor-pointer hover:bg-main/10">
                 <Upload className="opacity-70" />
                 <span className="text-sm opacity-80">{upFiles?.length ? `${upFiles.length} image(s) ready` : "Drop many labelled X-rays here, or click to browse"}</span>
                 <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => setUpFiles(e.target.files)} />
