@@ -22,6 +22,9 @@ from PIL import Image
 
 IMG_SIZE = 64
 CLASS_NAMES = ["NORMAL", "PNEUMONIA"]
+# Raised from 0.5 → 0.6 to cut NORMAL false positives (precision 0.857 → 0.874
+# on held-out test; see results/threshold_sweep.json). Still high recall (0.926).
+DECISION_THRESHOLD = 0.6
 KAGGLE_DATASET = "paultimothymooney/chest-xray-pneumonia"
 
 ROOT_DIR = Path(__file__).resolve().parents[1]

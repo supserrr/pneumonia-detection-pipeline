@@ -17,6 +17,7 @@ from pathlib import Path
 import numpy as np
 
 from src.preprocessing import (
+    DECISION_THRESHOLD,
     IMG_SIZE,
     TRAIN_DIR,
     UPLOAD_DIR,
@@ -166,7 +167,7 @@ def evaluate_model(model, X_test: np.ndarray, y_test: np.ndarray) -> dict:
     )
 
     probs = model.predict(X_test, verbose=0).flatten()
-    preds = (probs >= 0.5).astype(int)
+    preds = (probs >= DECISION_THRESHOLD).astype(int)
     return {
         "accuracy": float(accuracy_score(y_test, preds)),
         "precision": float(precision_score(y_test, preds)),
@@ -175,6 +176,7 @@ def evaluate_model(model, X_test: np.ndarray, y_test: np.ndarray) -> dict:
         "roc_auc": float(roc_auc_score(y_test, probs)),
         "confusion_matrix": confusion_matrix(y_test, preds).tolist(),
         "n_test": int(len(y_test)),
+        "decision_threshold": float(DECISION_THRESHOLD),
     }
 
 

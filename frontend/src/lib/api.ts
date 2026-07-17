@@ -13,7 +13,13 @@ export type ClassStat = {
   brightness_hist: number[]; mean_image: number[][]
 }
 export type Viz = { classes: Record<string, ClassStat> }
-export type Prediction = { prediction: string; pneumonia_probability: number; confidence: number; filename?: string }
+export type Prediction = {
+  prediction: string
+  pneumonia_probability: number
+  confidence: number
+  threshold?: number
+  filename?: string
+}
 export type RetrainState = { status: string; detail: any; started_at: string | null; finished_at: string | null }
 
 async function jfetch(url: string, opts?: RequestInit) {
