@@ -309,6 +309,12 @@ export default function App() {
                   </div>
                   <div className="flex justify-between text-xs opacity-70"><span>pneumonia probability</span><span className="tabular-nums">{(pred.pneumonia_probability * 100).toFixed(1)}%</span></div>
                   <Progress value={pred.pneumonia_probability * 100} />
+                  {(pred.threshold ?? status?.decision_threshold ?? m.decision_threshold) != null && (
+                    <div className="flex justify-between text-xs opacity-70">
+                      <span>decision threshold</span>
+                      <span className="tabular-nums">{pred.threshold ?? status?.decision_threshold ?? m.decision_threshold}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -330,6 +336,7 @@ export default function App() {
               <Row k="Uptime" v={uptime} mono />
               <Row k="Last trained" v={(status?.model_saved_at || "—").replace(" ", " · ")} mono />
               <Row k="Version" v={status?.model_note || "—"} small />
+              <Row k="Decision threshold" v={String(status?.decision_threshold ?? m.decision_threshold ?? "—")} mono />
               <Row k="Test set" v={m.n_test ? `${m.n_test} images` : "—"} />
             </CardContent>
           </Card>

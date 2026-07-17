@@ -2,10 +2,12 @@
 export type Metrics = {
   accuracy: number; precision: number; recall: number; f1_score: number;
   roc_auc: number; confusion_matrix: number[][]; n_test: number
+  decision_threshold?: number
 }
 export type Status = {
   status: string; uptime_seconds: number; uptime_human: string;
   model_saved_at: string | null; model_note: string | null;
+  decision_threshold?: number
   model_metrics: Partial<Metrics>; retraining: string
 }
 export type ClassStat = {

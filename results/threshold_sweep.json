@@ -4,34 +4,94 @@
   "accuracy": 0.859,
   "precision": 0.8326,
   "recall": 0.9692,
-  "f1": 0.8957
+  "f1": 0.8957,
+  "confusion_matrix": [
+   [
+    158,
+    76
+   ],
+   [
+    12,
+    378
+   ]
+  ],
+  "fp_normal": 76,
+  "fn_pneumonia": 12
  },
  {
   "threshold": 0.4,
   "accuracy": 0.8574,
   "precision": 0.8428,
   "recall": 0.9487,
-  "f1": 0.8926
+  "f1": 0.8926,
+  "confusion_matrix": [
+   [
+    165,
+    69
+   ],
+   [
+    20,
+    370
+   ]
+  ],
+  "fp_normal": 69,
+  "fn_pneumonia": 20
  },
  {
   "threshold": 0.5,
   "accuracy": 0.8622,
   "precision": 0.8568,
   "recall": 0.9359,
-  "f1": 0.8946
+  "f1": 0.8946,
+  "confusion_matrix": [
+   [
+    173,
+    61
+   ],
+   [
+    25,
+    365
+   ]
+  ],
+  "fp_normal": 61,
+  "fn_pneumonia": 25
  },
  {
   "threshold": 0.6,
   "accuracy": 0.8702,
   "precision": 0.8741,
   "recall": 0.9256,
-  "f1": 0.8991
+  "f1": 0.8991,
+  "confusion_matrix": [
+   [
+    182,
+    52
+   ],
+   [
+    29,
+    361
+   ]
+  ],
+  "fp_normal": 52,
+  "fn_pneumonia": 29
  },
  {
   "threshold": 0.7,
   "accuracy": 0.8734,
   "precision": 0.8917,
   "recall": 0.9077,
-  "f1": 0.8996
+  "f1": 0.8996,
+  "confusion_matrix": [
+   [
+    191,
+    43
+   ],
+   [
+    36,
+    354
+   ]
+  ],
+  "fp_normal": 43,
+  "fn_pneumonia": 36
  }
 ]

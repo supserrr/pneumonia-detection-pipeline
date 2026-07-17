@@ -28,7 +28,7 @@ from fastapi.staticfiles import StaticFiles
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR))
 
-from src.preprocessing import CLASS_NAMES, UPLOAD_DIR, dataset_statistics  # noqa: E402
+from src.preprocessing import CLASS_NAMES, DECISION_THRESHOLD, UPLOAD_DIR, dataset_statistics  # noqa: E402
 from src.model import METADATA_PATH  # noqa: E402
 from src import prediction  # noqa: E402
 
@@ -67,6 +67,7 @@ def status() -> dict:
         "uptime_human": _human_time(uptime),
         "model_saved_at": meta.get("saved_at"),
         "model_note": meta.get("note"),
+        "decision_threshold": DECISION_THRESHOLD,
         "model_metrics": meta.get("metrics", {}),
         "retraining": _retrain_state["status"],
     }

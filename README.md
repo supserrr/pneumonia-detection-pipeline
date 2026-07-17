@@ -49,18 +49,22 @@ ReduceLROnPlateau, and class weights.
 
 ### Results on the held-out 624-image test set
 
+Deployed decision threshold: **0.6** (raised from 0.5 to cut NORMAL false positives; see
+`results/threshold_sweep.json`).
+
 | Metric | Score |
 |---|---|
-| Accuracy | 0.8622 |
-| Precision | 0.8568 |
-| Recall | 0.9359 |
-| F1 score | 0.8946 |
+| Accuracy | 0.8702 |
+| Precision | 0.8741 |
+| Recall | 0.9256 |
+| F1 score | 0.8991 |
 | ROC AUC | 0.9358 |
 
-Confusion matrix `[[173, 61], [25, 365]]`: 25 missed pneumonia cases and 61 false alarms.
+Confusion matrix `[[182, 52], [29, 361]]`: 29 missed pneumonia cases and 52 false alarms
+(was 61 false alarms at threshold 0.5).
 
 The test set is 62.5% pneumonia, so a majority-class baseline already scores 0.625. That, not 50%,
-is the bar worth comparing against, and 0.862 clears it by enough to be a real improvement rather
+is the bar worth comparing against, and 0.870 clears it by enough to be a real improvement rather
 than an artefact of the imbalance.
 
 A few honest caveats. The data is entirely pediatric (ages 1 to 5), so none of it transfers to adult
@@ -87,7 +91,11 @@ features that survive small perturbations:
 | | Test accuracy | Precision | Recall | F1 | ROC AUC |
 |---|---:|---:|---:|---:|---:|
 | Without augmentation | 0.7308 | 0.6989 | 1.0000 | 0.8228 | 0.9234 |
-| With augmentation | 0.8622 | 0.8568 | 0.9359 | 0.8946 | 0.9358 |
+| With augmentation (thr 0.5) | 0.8622 | 0.8568 | 0.9359 | 0.8946 | 0.9358 |
+
+Those training numbers use the default 0.5 threshold so the comparison is fair. The live service
+uses threshold **0.6** (accuracy 0.8702, precision 0.8741, recall 0.9256) after a post-training
+precision/recall trade-off choice documented in the notebook.
 
 Look at what the un-augmented model actually did. Recall of 1.0 at precision 0.70 means it flagged
 168 of the 234 healthy children as pneumonic. It caught every real case by calling almost everyone
@@ -229,10 +237,12 @@ note of the model currently loaded in the container.
 {
   "status": "up",
   "uptime_human": "0d 2h 14m 07s",
-  "model_saved_at": "2026-07-16 03:11:42",
-  "model_note": "initial training - 21 epochs w/ augmentation on 5,216 pediatric chest X-rays (64x64)",
-  "model_metrics": {"accuracy": 0.8622, "precision": 0.8568, "recall": 0.9359,
-                    "f1_score": 0.8946, "roc_auc": 0.9358, "confusion_matrix": [[173,61],[25,365]]},
+  "model_saved_at": "2026-07-17 20:03:31",
+  "model_note": "initial training - 21 epochs w/ augmentation on 5,216 pediatric chest X-rays (64x64); decision threshold set to 0.6 to cut NORMAL false positives",
+  "decision_threshold": 0.6,
+  "model_metrics": {"accuracy": 0.8702, "precision": 0.8741, "recall": 0.9256,
+                    "f1_score": 0.8991, "roc_auc": 0.9358, "confusion_matrix": [[182,52],[29,361]],
+                    "n_test": 624, "decision_threshold": 0.6},
   "retraining": "idle"
 }
 ```
